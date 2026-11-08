@@ -1,0 +1,112 @@
+{
+  "types": [
+    {
+      "code": "STMT_TAMPER",
+      "name": "Edited bank statements",
+      "family": "old",
+      "level": "critical",
+      "confirmed": true,
+      "writes_row": true,
+      "check": "Each month's opening balance must equal the prior month's closing balance; listed transactions must add up to the summary totals."
+    },
+    {
+      "code": "REV_INFLATION",
+      "name": "Revenue made up on paper",
+      "family": "old",
+      "level": "critical",
+      "confirmed": true,
+      "writes_row": true,
+      "check": "Stated annual revenue (application or tax return) is more than 1.5x the annualized deposits in the bank statements."
+    },
+    {
+      "code": "ID_MISMATCH",
+      "name": "Borrowed or fake identity",
+      "family": "old",
+      "level": "critical",
+      "confirmed": true,
+      "writes_row": true,
+      "check": "Name, date of birth, or address on the photo ID disagrees with the application, beyond common nicknames."
+    },
+    {
+      "code": "DUP_EIN",
+      "name": "Same company under a new name",
+      "family": "old",
+      "level": "critical",
+      "confirmed": true,
+      "writes_row": true,
+      "check": "EIN already used by a different legal name in history."
+    },
+    {
+      "code": "SHELL_ADDRESS",
+      "name": "Business with no real premises",
+      "family": "old",
+      "level": "critical",
+      "confirmed": true,
+      "writes_row": true,
+      "check": "Business address is a mailbox store or PMB."
+    },
+    {
+      "code": "DEPENDENCY_BREAK",
+      "name": "Party paid somewhere new",
+      "family": "pattern",
+      "level": "warning",
+      "confirmed": false,
+      "writes_row": false,
+      "check": "A party that history always paid one way is paired with a different counterparty, especially when funds would go to an account the bank has not used for them. This is a new pattern for a person to review. It is not a confirmed fraud."
+    },
+    {
+      "code": "IDENTITY_REUSE",
+      "name": "Same person, different business",
+      "family": "pattern",
+      "level": "warning",
+      "confirmed": false,
+      "writes_row": false,
+      "check": "Driver license, or SSN last 4 plus birth date, appears under a different business that did not disclose the affiliation. Warning until fraud review confirms it."
+    },
+    {
+      "code": "RING_LINK",
+      "name": "Cross-deal ring",
+      "family": "pattern",
+      "level": "warning",
+      "confirmed": false,
+      "writes_row": false,
+      "check": "Unrelated borrowers share several rare attributes (vendor account, preparer, PDF producer, address, phone) at a combined weight that links them. Warning until fraud review confirms it."
+    },
+    {
+      "code": "PATTERN_NEIGHBOUR",
+      "name": "Rare shared pattern",
+      "family": "pattern",
+      "level": "warning",
+      "confirmed": false,
+      "writes_row": false,
+      "check": "This deal is unusually close to a cluster of other deals on rare details, closer than the normal similarity limit. Warning until fraud review confirms it."
+    },
+    {
+      "code": "LEARNED_RULE",
+      "name": "Fraud Ops approved pattern",
+      "family": "pattern",
+      "level": "critical",
+      "confirmed": true,
+      "writes_row": true,
+      "check": "The deal carries most of the details of a pattern Fraud Operations already marked active."
+    },
+    {
+      "code": "STYLE_ANOMALY",
+      "name": "Unusual deposit style",
+      "family": "signal",
+      "level": "info",
+      "confirmed": false,
+      "writes_row": false,
+      "check": "Deposit style is among the most unusual of the current deals and most deposits are round hundreds. Supporting evidence only. Do not write a fraud_detected row for this alone."
+    },
+    {
+      "code": "DOC_FORENSICS",
+      "name": "Statement created too early",
+      "family": "signal",
+      "level": "info",
+      "confirmed": false,
+      "writes_row": false,
+      "check": "A bank statement file was created before the last transaction it lists. Supporting evidence only. Do not write a fraud_detected row for this alone."
+    }
+  ]
+}

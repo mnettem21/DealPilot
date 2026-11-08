@@ -229,15 +229,18 @@ class Engine:
             fr = d["fraud"]
             fr.update({"linked_deals": res["linked_deals"], "reason": res["reason"], "score": res["score"],
                        "level": res["level"], "rules": [f["rule"] for f in res["findings"] if f["level"] != "info"]})
-            if res["level"] == "critical" and not fr.get("flagged"):
-                for r in d["human_requests"]:  # a pending warning is replaced by the hold request
-                    if r["type"] == "fraud_hold" and r["answer"] is None:
-                        r["answer"], r["answered_at"], r["answered_by"] = "superseded", iso(t), "system"
-                fr.update({"flagged": True, "flagged_at": iso(t), "stage_at_flag": d["stage"], "held": True})
-                self._request(d, t, "fraud_hold", "victor.hale", self._fraud_message(d, "critical"), stage=d["stage"])
-            elif res["level"] == "warning" and not fr.get("flagged") and not fr.get("warned"):
-                fr.update({"warned": True, "warned_at": iso(t)})
-                self._request(d, t, "fraud_hold", "victor.hale", self._fraud_message(d, "warning"), stage=d["stage"])
+            if res["level"] == "critical" and not fr.get("queued"):
+                fr.update({"queued": True, "flagged": True, "held": False, "flagged_at": iso(t), "stage_at_flag": d["stage"]})
+                self.store.upsert("fraud_critical", n, {
+                    "id": n, "folder": n, "label": "fraud critical", "status": "open",
+                    "at": iso(t), "stage": d["stage"], "reason": res["reason"],
+                })
+            elif res["level"] == "warning" and not fr.get("warned"):
+                fr.update({"warned": True, "warned_at": iso(t), "held": False})
+                self.store.upsert("fraud_warnings", n, {
+                    "id": n, "folder": n, "status": "open", "at": iso(t), "stage": d["stage"], "reason": res["reason"],
+                })
+                self._alert(d, t, "alert", "victor.hale", d["stage"], self._fraud_message(d, "warning"))
 
     def _propose_rules(self, name, res, t):
         """A new cluster of shared rare details becomes a proposed rule for Fraud Ops to approve or reject."""
@@ -259,6 +262,21 @@ class Engine:
         self._fraud_screen(self.now())
         self.save()
 
+    def decide_fraud(self, folder, decision):
+        """Fraud team answer for a critical queue row. The deal does not stop before Committed."""
+        if decision not in {"release", "reject"}:
+            raise ValueError(decision)
+        deal = self.state["deals"][folder]
+        deal["fraud"]["decision"] = decision
+        if decision == "release":
+            deal["fraud"]["cleared"] = True
+            deal["fraud"]["held"] = False
+        rows = [row for row in self.store.list("fraud_critical") if row.get("folder") == folder]
+        rec = dict(rows[0]) if rows else {"id": folder, "folder": folder, "label": "fraud critical"}
+        rec["status"] = "released" if decision == "release" else "rejected"
+        self.store.upsert("fraud_critical", folder, rec)
+        self.save()
+
     def _fraud_message(self, d, level):
         f, fr = d["facts"], d["fraud"]
         who = f"{d['name']} ({f.get('legal_name')}, ${f.get('amount_requested') or 0:,.0f}, RM {self.name(d['rm'])})"
@@ -266,10 +284,10 @@ class Engine:
         rel = (f" Related deals: current {[x for x in linked if not x.startswith('H-')] or 'none'}; "
                f"history {[x for x in linked if x.startswith('H-')] or 'none'} (funded ones may need a look).") if linked else ""
         if level == "warning":
-            return (f"WARNING (watch, not stopped): a new pattern is emerging on {who}. It can keep moving but cannot reach Closed until you "
-                    f"clear it. Why: {fr['reason']}{rel} Answer 'hold' to stop it or 'release' if it is fine.")
-        return (f"Please place a FRAUD HOLD on {who}. I have stopped it from moving forward and it will not be allowed to reach Closed until "
-                f"you decide. Why: {fr['reason']}{rel} Answer 'hold' to keep it stopped or 'release' if it is fine.")
+            return (f"WARNING (not held): a new pattern on {who} needs a look when you have time. The deal keeps moving. "
+                    f"Why: {fr['reason']}{rel}")
+        return (f"Fraud critical: {who} stays on the fraud queue. The deal keeps moving until Committed, then waits for the fraud team. "
+                f"Why: {fr['reason']}{rel}")
 
     # ---------- humans ----------
     def _request(self, d, t, rtype, to, message, stage=None, issues=None):
@@ -512,11 +530,13 @@ class Engine:
             return
         if ans != "approve" and not self._signed(d):
             return
-        # final screen + disbursement account, then ask the funding officer
-        if d["fraud"].get("flagged") and not d["fraud"].get("cleared"):
-            return
-        if any(r["type"] == "fraud_hold" and r["answer"] is None for r in d["human_requests"]):
-            d["waiting_on"] = "Fraud Operations (warning review before funding)"
+        if d["fraud"].get("level") == "critical" and d["fraud"].get("decision") != "release":
+            if d["fraud"].get("decision") == "reject":
+                d["status"] = "declined"
+                d["waiting_on"] = "fraud critical"
+                self._close_stage(d, t, "declined", "Fraud team rejected the deal at Committed.")
+                return
+            d["waiting_on"] = "fraud critical"
             return
         if f["product"] != "Equipment Loan" and f["app_acct_last4"] not in f["stmt_acct_last4"]:
             d["waiting_on"] = "disbursement account does not match the statements"

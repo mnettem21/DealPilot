@@ -1,0 +1,22 @@
+FROM python:3.12-slim-bookworm
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/dealpilot
+
+COPY requirements.txt /opt/dealpilot/requirements.txt
+RUN pip install --no-cache-dir -r /opt/dealpilot/requirements.txt numpy scikit-learn
+
+COPY engine /opt/dealpilot/engine
+COPY agent /opt/dealpilot/agent
+COPY .cursor/skills/flag-fraud/fraud-types.json /opt/dealpilot/.cursor/skills/flag-fraud/fraud-types.json
+
+ENV PYTHONPATH=/opt/dealpilot/engine
+ENV DATA_DIR=/opt/dealpilot
+ENV DEAL_DIR=/data
+ENV DEAL_FOLDER=""
+ENV PIPELINE_URL=""
+
+ENTRYPOINT ["python3", "/opt/dealpilot/agent/detect.py"]

@@ -1,4 +1,5 @@
 from services.common.fraud import fraud_for
+from services.common.fraud_queue import committed_block, critical_status
 from services.common.pocketbase import PocketBase
 from services.common.records import latest_human_decision, log_action, move_row
 from services.stages import load
@@ -55,6 +56,16 @@ def consider(pb, stage, row) -> None:
         pb.update_record(stage.name, row["id"], {"status": "open", "waiting_on": "; ".join(blockers)})
         return
     if decision == "approve":
+        if stage.name == "committed":
+            block = committed_block(critical_status(pb, row["folder"]))
+            if block == "wait":
+                pb.update_record(stage.name, row["id"], {"status": "waiting_human", "waiting_on": "fraud critical"})
+                print(f"rules: {row['folder']} waiting at committed, fraud critical")
+                return
+            if block == "decline":
+                pb.update_record(stage.name, row["id"], {"status": "declined", "waiting_on": "fraud critical"})
+                print(f"rules: {row['folder']} rejected at committed by the fraud team")
+                return
         if stage.next_name is None:
             if stage.name == "closed" and fraud_for(pb, row["folder"]):
                 pb.update_record(stage.name, row["id"], {"waiting_on": "fraud detected"})

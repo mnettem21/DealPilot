@@ -8,8 +8,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from services.bootstrap import ensure_fraud_detected
 from services.common.clock import now
 from services.common.fraud import fraud_for
+from services.common.fraud_types import fraud_type, fraud_types
 from services.common.pocketbase import PocketBase
 from services.common.records import find_deal
+
+
+def _reason(code, text):
+    detail = (text or "").strip()
+    if not code:
+        if not detail:
+            raise SystemExit("reason is required")
+        return detail
+    spec = fraud_type(code)
+    if spec is None:
+        known = ", ".join(row["code"] for row in fraud_types())
+        raise SystemExit(f"unknown fraud type {code}. Known types: {known}")
+    if not spec["writes_row"]:
+        raise SystemExit(f"{spec['code']} does not write a fraud_detected row")
+    return f"{spec['code']}: {detail or spec['name']}"
 
 
 def main() -> None:
@@ -17,8 +33,11 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     flag = commands.add_parser("flag")
     flag.add_argument("folder")
-    flag.add_argument("reason")
+    flag.add_argument("reason", nargs="?", default="")
+    flag.add_argument("--type", dest="fraud_type")
+    flag.add_argument("--reason", dest="reason_flag", default="")
     args = parser.parse_args()
+    reason = _reason(args.fraud_type, args.reason_flag or args.reason)
     pb = PocketBase()
     ensure_fraud_detected(pb)
     if fraud_for(pb, args.folder):
@@ -30,7 +49,7 @@ def main() -> None:
     stage_name = found[0][0]
     pb.create_record(
         "fraud_detected",
-        {"folder": args.folder, "at": now(), "stage": stage_name, "reason": args.reason},
+        {"folder": args.folder, "at": now(), "stage": stage_name, "reason": reason},
     )
     print(f"fraud: flagged {args.folder} in {stage_name}")
 

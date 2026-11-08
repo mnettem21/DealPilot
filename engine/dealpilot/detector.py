@@ -8,15 +8,29 @@ critical = request a fraud hold now.
 "info" findings are supporting evidence: they never raise the level by themselves.
 """
 import hashlib
+import json
 import math
 from collections import Counter
+from pathlib import Path
 
 from .fraud import Linker
 from .patterns import tokens
 
 ORDER = {"info": 0, "warning": 1, "critical": 2}
 BY_ORDER = {v: k for k, v in ORDER.items()}
-OLD_TRICKS = {"STMT_TAMPER", "REV_INFLATION", "ID_MISMATCH", "DUP_EIN", "SHELL_ADDRESS"}  # the bank's own rules: feedback never softens them
+
+
+def _old_tricks():
+    """Bank list from the flag-fraud skill. Feedback never softens these."""
+    for parent in Path(__file__).resolve().parents:
+        catalog = parent / ".cursor" / "skills" / "flag-fraud" / "fraud-types.json"
+        if catalog.is_file():
+            rows = json.loads(catalog.read_text())["types"]
+            return {row["code"] for row in rows if row.get("family") == "old"}
+    raise FileNotFoundError("flag-fraud fraud-types.json")
+
+
+OLD_TRICKS = _old_tricks()
 
 
 def finding(rule, level, evidence, deals=(), score=0, signature=None):
@@ -71,7 +85,7 @@ def rule_dependency_break(deal, ctx):
                f"{b['total']} past deals; this deal has '{b['seen']}'.")
         if b["money"]:
             why += " Funds would go somewhere the bank has not paid this party before."
-        out.append(finding("DEPENDENCY_BREAK", "critical" if b["money"] else "warning", why, peers))
+        out.append(finding("DEPENDENCY_BREAK", "warning", why, peers))
     return out
 
 
@@ -79,11 +93,10 @@ def rule_ring(deal, ctx):
     r = ctx.rings.get(deal["name"])
     if not r:
         return []
-    bad = any(ctx.hist.facts[x]["bad"] for x in r["linked"] if x in ctx.hist.facts)
     ev = f"Same hidden pattern as {len(r['linked'])} other deal(s): " + " | ".join(r["evidence"])
     if r["identity"]:
-        return [finding("IDENTITY_REUSE", "critical", "The same person identifiers (driver's license or SSN+birthdate) appear under a different business. " + ev, r["linked"], r["score"])]
-    return [finding("RING_LINK", "critical" if r["score"] >= 20 or bad else "warning", ev, r["linked"], r["score"])]
+        return [finding("IDENTITY_REUSE", "warning", "The same person identifiers (driver's license or SSN+birthdate) appear under a different business. " + ev, r["linked"], r["score"])]
+    return [finding("RING_LINK", "warning", ev, r["linked"], r["score"])]
 
 
 def rule_neighbour(deal, ctx):
@@ -96,8 +109,7 @@ def rule_neighbour(deal, ctx):
     shared = "; ".join(f"{readable(t)} (in {k} deals)" for t, k in n["shared"][:4])
     ev = (f"Unusually similar to {', '.join(n['cluster'])} (closest score {n['sim']} vs a normal limit of {n['threshold']}). "
           f"Shared rare details: {shared}.")
-    crit = len(n["cluster"]) + 1 >= 3 or n["bad_neighbour"]
-    return [finding("PATTERN_NEIGHBOUR", "critical" if crit else "warning", ev, n["cluster"], n["sim"], n["signature"])]
+    return [finding("PATTERN_NEIGHBOUR", "warning", ev, n["cluster"], n["sim"], n["signature"])]
 
 
 def rule_learned(deal, ctx):

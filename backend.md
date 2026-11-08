@@ -101,6 +101,21 @@ docker run --rm -v <deal-files>:/data dealpilot-files
 
 The image is `Dockerfile.files`. It only lists `/data`. Rules build the `dealpilot-files` tag if it is missing. On this Mac, Docker is started with `posix_spawn` because `fork` crashes after the PocketBase client has used TLS.
 
+The fraud detection agent is a second image, `Dockerfile.agent`, tag `dealpilot-detect`. One deal's files are mounted at `/data`, and `history/` is mounted at `/opt/dealpilot/history` (`history/` is excluded from the image build). The process prints one JSON object and exits. Pass `API_TOKEN` with `-e` at run time. When `PIPELINE_URL` is set, the agent POSTs that same JSON with `Authorization: Bearer $API_TOKEN`.
+
+```bash
+docker build -f Dockerfile.agent -t dealpilot-detect .
+docker run --rm \
+  -e API_TOKEN \
+  -e PIPELINE_URL \
+  -e DEAL_FOLDER="Ridgeway Freight Logistics" \
+  -v "<deal-files>:/data:ro" \
+  -v "<repo>/history:/opt/dealpilot/history:ro" \
+  dealpilot-detect
+```
+
+The agent reports `level` and always leaves `hold` false. It does not stop the deal. The pipeline files a `critical` result as one `fraud_critical` row labeled `fraud critical`. The deal keeps moving until Committed, then sits with `waiting_on` `fraud critical` until the fraud team releases it or rejects it. A `warning`, including the Metroplex lookalike vendor (LLC and account 4471 versus Inc. and account 9902), is one `fraud_warnings` row. That table does not stop the deal, and the deal can close if nobody acts on it. A deal that matches the established vendor and account, and trips no confirmed type, comes back `level` `none`.
+
 ## Tables
 
 ### Stage queues
@@ -218,7 +233,10 @@ python3 scripts/human.py --stage credit answer "Folder Name" approve --actor mar
 
 ```bash
 python3 scripts/fraud.py flag "Folder Name" "reason"
+python3 scripts/fraud.py flag "Folder Name" --type STMT_TAMPER --reason "why it matched"
 ```
+
+Known types are `.cursor/skills/flag-fraud/fraud-types.json`. `services.common.fraud_types` reads that file. `--type` must be a type with `writes_row` true. The stored reason is `<code>: <evidence>`. A type with `writes_row` false is refused.
 
 ```bash
 python3 scripts/submission.py
@@ -245,6 +263,6 @@ The submission file follows `SUBMISSION_FORMAT.md`. `team` is `DEALPILOT_TEAM`. 
 ## Not in this backend
 
 - `web/` is still the old UI. It does not call these services.
-- There is no fraud detector. `fraud_detected` only holds rows written by `scripts/fraud.py`.
+- There is no fraud detector in these services. `fraud_detected` only holds rows written by `scripts/fraud.py`. The known type list those rows use is the flag-fraud skill catalog.
 - There is no local SQLite file and no `db.py`.
 - `rules/`, `contacts/`, `history/`, `sim/`, and `shared_folder/` stay on disk as inputs the bootstrap and the parser read.

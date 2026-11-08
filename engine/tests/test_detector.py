@@ -40,10 +40,10 @@ def rules(res):
     return {f["rule"] for f in res["findings"] if f["level"] != "info"}
 
 
-def test_ring_critical_good_deals_untouched(deals):
+def test_ring_is_a_warning_and_good_deals_stay_clear(deals):
     res = run(deals)
-    assert {n for n, r in res.items() if r["level"] == "critical"} == RING | {"Granite Bay Building Supply"}
-    assert not [n for n, r in res.items() if r["level"] == "warning"]
+    assert {n for n, r in res.items() if r["level"] == "critical"} == {"Granite Bay Building Supply"}
+    assert {n for n, r in res.items() if r["level"] == "warning"} == RING
     for n in RING:
         assert {"DEPENDENCY_BREAK", "RING_LINK", "PATTERN_NEIGHBOUR"} <= rules(res[n])
         assert {"H-2608-002", "H-2609-008"} <= set(res[n]["linked_deals"])
@@ -93,9 +93,9 @@ def test_two_shared_new_columns_alone_are_not_enough(deals):
 def test_leave_one_out(deals, hidden):
     res = run(deals, names=RING - {hidden})
     for n in RING - {hidden}:
-        assert res[n]["level"] == "critical" and rules(res[n]) >= {"RING_LINK", "DEPENDENCY_BREAK"}
+        assert res[n]["level"] == "warning" and rules(res[n]) >= {"RING_LINK", "DEPENDENCY_BREAK"}
 
 
 def test_first_arrival_alone_is_caught_through_history(deals):
     res = run(deals, names={"Ridgeway Freight Logistics"})["Ridgeway Freight Logistics"]
-    assert res["level"] == "critical" and {"H-2608-002", "H-2609-008"} <= set(res["linked_deals"])
+    assert res["level"] == "warning" and {"H-2608-002", "H-2609-008"} <= set(res["linked_deals"])

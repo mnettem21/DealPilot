@@ -109,6 +109,27 @@ FRAUD_FIELDS = (
 )
 
 
+def ensure_fraud_queues(pb: PocketBase) -> None:
+    names = {collection.get("name") for collection in pb.collections()}
+    specs = (
+        ("folder", "text", {"required": True, "min": 1, "max": 300}),
+        ("at", "text", {"required": True, "min": 1, "max": 80}),
+        ("stage", "text", {"max": 40}),
+        ("reason", "text", {"max": 5000}),
+        ("status", "text", {"required": True, "min": 1, "max": 40}),
+        ("label", "text", {"max": 40}),
+    )
+    for name in ("fraud_critical", "fraud_warnings"):
+        if name in names:
+            continue
+        create_collection(
+            pb,
+            name,
+            specs,
+            [f"CREATE UNIQUE INDEX `idx_{name}_folder` ON `{name}` (`folder`)"],
+        )
+
+
 def ensure_fraud_detected(pb: PocketBase) -> None:
     names = {collection.get("name") for collection in pb.collections()}
     if "fraud_detected" in names:
@@ -241,6 +262,7 @@ def main() -> None:
         ["CREATE UNIQUE INDEX `idx_history_deal` ON `history` (`deal_id`)"],
     )
     ensure_fraud_detected(pb)
+    ensure_fraud_queues(pb)
     seed_contacts(pb)
     seed_history(pb)
 

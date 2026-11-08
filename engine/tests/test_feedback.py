@@ -20,41 +20,52 @@ def engine(tmp_path, folders, store=None):
     return Engine(DATA, tmp_path / "state.json", arr, store or FileStore(tmp_path / "store"))
 
 
-def run_until_hold(e):
+def _at_committed(deal):
+    deal["stage"] = "Committed"
+    deal["human_requests"].append({
+        "type": "commitment_signoff", "answer": "approve", "stage": "Committed", "consumed": False,
+    })
+
+
+def test_unconfirmed_pattern_warns_without_a_hold(tmp_path):
+    e = engine(tmp_path, {"Ridgeway Freight Logistics"})
     e.advance("1d")
-    return next(r for n, r in e.pending() if r["type"] == "fraud_hold")
-
-
-def test_hold_is_a_middle_state_release_resumes_to_closed(tmp_path):
-    e = engine(tmp_path, {"Ridgeway Freight Logistics"})
-    req = run_until_hold(e)
-    e.answer("Ridgeway Freight Logistics", req["id"], "hold")
     d = e.state["deals"]["Ridgeway Freight Logistics"]
-    assert d["status"] == "held" and d["stage_log"][-1]["exited_at"] is None and not d.get("finalized")
-    rel = next(r for r in d["human_requests"] if r["type"] == "fraud_release" and r["answer"] is None)
-    assert e._export_stages(d)[-1]["decision"] == "held"           # the submission says where it stopped
-    e.answer(d["name"], rel["id"], "release")
-    assert d["status"] == "active" and d["fraud"]["cleared"] and d["fraud"]["label"] == "cleared"
-    for _ in range(12):                                             # carries on through the normal gates
-        e.advance("12h")
-        e.auto_answer()
-    assert d["status"] == "closed" and d["stage"] == "Closed"
-    assert any(l["label"] == "cleared" for l in e.store.list("labels"))
+    assert d["fraud"]["level"] == "warning" and d["fraud"].get("warned") and not d["fraud"].get("held")
+    assert d["status"] == "active"
+    warnings = [row for row in e.store.list("fraud_warnings") if row["folder"] == d["name"]]
+    assert warnings and not e.store.list("fraud_critical")
+    assert not any(r["type"] == "fraud_hold" for r in d["human_requests"])
+    _at_committed(d)
+    e._do_committed(d, e.now())
+    assert d.get("waiting_on") != "fraud critical"
 
 
-def test_confirm_declines_and_next_run_sees_it_as_history(tmp_path):
-    e = engine(tmp_path, {"Ridgeway Freight Logistics"})
-    req = run_until_hold(e)
-    e.answer("Ridgeway Freight Logistics", req["id"], "hold")
-    d = e.state["deals"]["Ridgeway Freight Logistics"]
-    rel = next(r for r in d["human_requests"] if r["type"] == "fraud_release" and r["answer"] is None)
-    e.answer(d["name"], rel["id"], "confirm_fraud")
-    assert d["status"] == "declined" and d["stage_log"][-1]["decision"] == "declined" and d["fraud"]["confirmed"]
-    saved = [r for r in e.store.list("deals") if r["source"] == "pipeline"]
-    assert saved and saved[0]["bad"] and saved[0]["label"] == "confirmed"
-    e2 = Engine(DATA, tmp_path / "state2.json", e.arrivals_path, e.store)   # a later run of the same system
-    prior = [f for f in e2.hist.facts.values() if str(f["id"]).startswith("P-Ridgeway")]
-    assert prior and prior[0]["bad"]
+def test_confirmed_fraud_is_queued_and_waits_only_at_committed(tmp_path):
+    e = engine(tmp_path, {"Granite Bay Building Supply"})
+    e.advance("2d")
+    d = e.state["deals"]["Granite Bay Building Supply"]
+    assert d["fraud"]["level"] == "critical" and not d["fraud"].get("held") and d["status"] == "active"
+    assert d["stage"] != "Closed"
+    row = next(r for r in e.store.list("fraud_critical") if r["folder"] == d["name"])
+    assert row["label"] == "fraud critical" and row["status"] == "open"
+    _at_committed(d)
+    e._do_committed(d, e.now())
+    assert d["stage"] == "Committed" and d["waiting_on"] == "fraud critical"
+    e.decide_fraud(d["name"], "release")
+    e._do_committed(d, e.now())
+    assert d["waiting_on"] != "fraud critical"
+    assert e.store.list("fraud_critical")[0]["status"] == "released"
+
+
+def test_fraud_team_reject_stops_the_deal_at_committed(tmp_path):
+    e = engine(tmp_path, {"Granite Bay Building Supply"})
+    e.advance("2d")
+    d = e.state["deals"]["Granite Bay Building Supply"]
+    _at_committed(d)
+    e.decide_fraud(d["name"], "reject")
+    e._do_committed(d, e.now())
+    assert d["status"] == "declined" and d["stage"] == "Committed"
 
 
 class Ctx:
