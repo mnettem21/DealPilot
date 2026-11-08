@@ -265,10 +265,11 @@ function renderDealDetail(deal) {
     </header>
     <div class="detail-body">
       <section class="detail-card"><div class="request-head"><div><p class="eyebrow">SAFE-TO-CLOSE</p><h3>${deal.readiness}% ready</h3></div><span class="badge ${statusTone(deal.operational_state)}">${escapeHtml(deal.operational_state.replaceAll("_", " "))}</span></div><div class="bar" style="margin-top:14px;height:10px"><i style="width:${deal.readiness}%"></i></div><p class="muted">Next action: ${escapeHtml(nextAction(deal))}</p></section>
-      ${deal.portal_application?.score?.tier ? `<section class="detail-card"><div class="request-head"><div><p class="eyebrow">APPROVAL READINESS</p><h3>${escapeHtml(deal.portal_application.score.tier.replaceAll("_", " "))}</h3></div><strong class="decision-score">${deal.portal_application.score.approval_readiness}</strong></div><p class="muted">${escapeHtml(deal.portal_application.decision.recommendation)}</p><p class="muted">Suggested amount: ${money(deal.portal_application.score.suggested_amount)} · Human confirmation required</p>${deal.portal_application.decision?.email_draft ? `<div style="margin-top:14px;padding:12px;background:var(--bg-subtle,#f8fafc);border-radius:6px;border:1px solid var(--border,#e2e8f0)"><div class="request-head"><strong>Borrower communication draft</strong><button class="button ghost" type="button" onclick="navigator.clipboard.writeText(this.closest('.request-head').nextElementSibling.textContent);showToast('Notice copied to clipboard');" style="padding:4px 8px;font-size:11px">Copy draft</button></div><pre style="white-space:pre-wrap;font:inherit;font-size:12px;margin-top:8px;color:#334155">${escapeHtml(deal.portal_application.decision.email_draft)}</pre></div>` : ""}</section>` : ""}
+      ${deal.portal_application?.score?.tier ? `<section class="detail-card"><div class="request-head"><div><p class="eyebrow">APPROVAL READINESS</p><h3>${escapeHtml(deal.portal_application.score.tier.replaceAll("_", " "))}</h3></div><strong class="decision-score">${deal.portal_application.score.approval_readiness}</strong></div><p class="muted">${escapeHtml(deal.portal_application.decision.recommendation)}</p><p class="muted">Suggested amount: ${money(deal.portal_application.score.suggested_amount)} · Human confirmation required</p>${deal.portal_application.decision?.email_draft ? `<div style="margin-top:14px;padding:12px;background:var(--bg-subtle,#f8fafc);border-radius:6px;border:1px solid var(--border,#e2e8f0)"><div class="request-head"><strong>Borrower communication draft</strong><button class="button ghost" type="button" data-copy-text style="padding:4px 8px;font-size:11px">Copy draft</button></div><pre class="copy-source" style="white-space:pre-wrap;font:inherit;font-size:12px;margin-top:8px;color:#334155">${escapeHtml(deal.portal_application.decision.email_draft)}</pre></div>` : ""}</section>` : ""}
       <section class="detail-card"><p class="eyebrow">EVIDENCE PASSPORT</p><h3>Extracted facts</h3><div class="detail-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px">${fields.map(([label,value]) => `<div><small class="muted">${label}</small><strong style="display:block;margin-top:4px">${escapeHtml(value)}</strong></div>`).join("")}</div></section>
       <section class="detail-card"><div class="request-head"><div><p class="eyebrow">PACKAGE VALIDATION</p><h3>${deal.issues.length} issues</h3></div><span>${deal.document_count} documents</span></div><div class="issues" style="margin-top:14px">${deal.issues.map(issue => `<span class="badge ${issue.startsWith("OLD_TRICK") ? "red" : "amber"}">${escapeHtml(issue)}</span>`).join("") || `<span class="badge green">No detected issues</span>`}</div></section>
       ${fraudDetail(deal)}
+      ${aiCopilotSection(deal)}
       <section class="detail-card"><p class="eyebrow">HUMAN REQUESTS</p><h3>Decisions</h3>${deal.human_requests.map(request => detailRequest(request)).join("") || `<p class="muted">No human decision requested yet.</p>`}</section>
       <section class="detail-card"><p class="eyebrow">DOCUMENTS</p><h3>Evidence package</h3>${deal.documents.map(doc => `<div class="doc-row"><span><strong>${escapeHtml(doc.filename)}</strong><small>${escapeHtml(doc.document_type.replaceAll("_", " "))} · ${doc.page_count || 1} pages</small></span><span class="badge ${doc.status === "PROCESSED" ? "green" : "amber"}">${doc.status}</span></div>`).join("")}</section>
       <section class="detail-card"><p class="eyebrow">AUDIT TRAIL</p><h3>Latest events</h3><div style="margin-top:16px">${deal.events.slice(0,12).map(event => `<div class="timeline-item"><strong>${escapeHtml(event.event_type.replaceAll(/([A-Z])/g," $1").trim())}</strong><span>${shortDate(event.at)} · ${escapeHtml(event.actor)}</span></div>`).join("")}</div></section>
@@ -278,6 +279,111 @@ function renderDealDetail(deal) {
 function fraudDetail(deal) {
   if (!deal.fraud.flagged) return `<section class="detail-card"><p class="eyebrow">DEAL DNA</p><h3>No coordinated fraud pattern</h3><p class="muted">The relationship engine has not found enough unusual shared evidence to recommend a hold.</p></section>`;
   return `<section class="detail-card"><div class="request-head"><div><p class="eyebrow">DEAL DNA</p><h3>Potential ${escapeHtml(deal.fraud.category.replaceAll("_", " "))}</h3></div><span class="badge red">${Math.round(deal.fraud.confidence*100)}% confidence</span></div><p>${escapeHtml(deal.fraud.reason)}</p><div class="issues">${deal.fraud.evidence.map(item => `<span class="badge red">${escapeHtml(item)}</span>`).join("")}</div><p class="muted">Linked: ${deal.fraud.linked_deals.map(escapeHtml).join(", ")}</p></section>`;
+}
+
+function aiCopilotSection(deal) {
+  return `
+    <section class="detail-card" style="border-left:4px solid #4338ca">
+      <div class="request-head">
+        <div><p class="eyebrow" style="color:#4338ca">AI REASONING COPILOT</p><h3>Gemini Forensic Analysis</h3></div>
+        <button class="button primary" type="button" data-run-deal-ai="${escapeHtml(deal.id)}" style="background:linear-gradient(135deg, #1e3a8a, #4338ca);border:none;font-size:12px;padding:6px 12px">✨ Run AI Analysis</button>
+      </div>
+      <div id="deal-ai-result-${escapeHtml(deal.id)}" style="margin-top:12px">
+        <p class="muted">Click "Run AI Analysis" or ask Gemini a question below regarding creditworthiness, document provenance, or cross-deal links.</p>
+      </div>
+      <form class="ai-ask-form" data-ai-ask-deal="${escapeHtml(deal.id)}" style="display:flex;gap:8px;margin-top:14px">
+        <input type="text" name="question" placeholder="Ask AI: e.g. Why is this flagged? Or assess collateral..." style="flex:1;padding:8px 12px;border:1px solid var(--line);border-radius:6px;font-size:12px" required>
+        <button class="button ghost" type="submit" style="font-size:12px">Ask</button>
+      </form>
+    </section>
+  `;
+}
+
+async function runDealAiAnalysis(dealId, question = null) {
+  const target = $(`#deal-ai-result-${dealId}`);
+  if (!target) return;
+  target.innerHTML = `<div style="padding:14px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;color:#4338ca;font-size:13px"><strong>✨ Gemini is synthesizing evidence dossier & analyzing deal file...</strong></div>`;
+  try {
+    const res = await api("/api/ai/investigate-deal", {
+      method: "POST",
+      body: JSON.stringify({ deal_id: dealId, question: question })
+    });
+    target.innerHTML = `
+      <div style="background:var(--bg-subtle,#f8fafc);border:1px solid #cbd5e1;border-radius:8px;padding:14px;margin-top:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span class="badge blue" style="font-size:10px">${escapeHtml(res.ai_provider)}</span>
+          <button class="button ghost" type="button" data-copy-text style="padding:2px 8px;font-size:10px">Copy</button>
+        </div>
+        <div class="copy-source" style="white-space:pre-wrap;font-size:12px;line-height:1.5;color:#1e293b">${escapeHtml(res.answer)}</div>
+      </div>
+    `;
+  } catch (err) {
+    target.innerHTML = `<div class="badge red" style="padding:10px;margin-top:8px">Analysis error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function runRingAiAnalysis() {
+  const panel = $("#ai-ring-panel");
+  if (!panel) return;
+  panel.classList.remove("hidden");
+  panel.innerHTML = `<div style="padding:20px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;color:#4338ca;font-size:13px"><strong>✨ Gemini AI is analyzing cross-deal relationships, structuring, and historical anchors...</strong></div>`;
+  try {
+    const res = await api("/api/ai/investigate-ring", {method:"POST", body:"{}"});
+    renderAiRingPanel(res);
+  } catch (err) {
+    panel.innerHTML = `<div class="badge red" style="padding:12px">Analysis error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderAiRingPanel(data) {
+  const panel = $("#ai-ring-panel");
+  panel.classList.remove("hidden");
+  panel.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
+      <div>
+        <span class="badge red" style="font-size:12px;font-weight:700">${escapeHtml(data.verdict.replaceAll("_", " "))}</span>
+        <span class="badge blue" style="font-size:11px;margin-left:8px">${escapeHtml(data.ai_provider)}</span>
+        <h2 style="margin-top:10px;font-size:20px;color:#1e1b4b">Executive Fraud Syndicate Briefing</h2>
+      </div>
+      <button class="button ghost" type="button" data-close-ai-ring style="padding:4px 8px">✕ Close</button>
+    </div>
+
+    <div style="margin-top:16px;padding:14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px">
+      <strong style="color:#991b1b;display:block;margin-bottom:6px">EXECUTIVE SUMMARY</strong>
+      <p style="margin:0;font-size:13px;line-height:1.5;color:#7f1d1d">${escapeHtml(data.executive_summary)}</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+      <div style="padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+        <strong style="color:#334155;display:block;margin-bottom:6px">STRUCTURING & THRESHOLD EVASION</strong>
+        <p style="margin:0;font-size:12px;line-height:1.5;color:#475569">${escapeHtml(data.structuring_analysis)}</p>
+      </div>
+      <div style="padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+        <strong style="color:#334155;display:block;margin-bottom:6px">HISTORICAL RECIDIVISM</strong>
+        <p style="margin:0;font-size:12px;line-height:1.5;color:#475569">${escapeHtml(data.historical_recidivism)}</p>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+      <strong style="color:#334155;display:block;margin-bottom:6px">SYNDICATE MODUS OPERANDI</strong>
+      <pre style="white-space:pre-wrap;font-family:inherit;font-size:12px;line-height:1.5;color:#475569;margin:0">${escapeHtml(data.modus_operandi)}</pre>
+    </div>
+
+    <div style="margin-top:16px;padding:14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <strong style="color:#1e40af">FINCEN SUSPICIOUS ACTIVITY REPORT (SAR) NARRATIVE</strong>
+        <button class="button ghost" type="button" data-copy-text style="padding:4px 8px;font-size:11px">Copy SAR Narrative</button>
+      </div>
+      <pre class="copy-source" style="white-space:pre-wrap;font-family:inherit;font-size:12px;line-height:1.5;color:#1e3a8a;margin:0">${escapeHtml(data.sar_narrative)}</pre>
+    </div>
+
+    <div style="margin-top:16px">
+      <strong style="display:block;font-size:12px;color:#334155;margin-bottom:8px">RECOMMENDED COMPLIANCE & UNDERWRITING ACTIONS:</strong>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${data.recommended_actions.map(act => `<span class="badge red" style="font-size:11px;padding:6px 10px">${escapeHtml(act)}</span>`).join("")}
+      </div>
+    </div>
+  `;
 }
 
 function detailRequest(request) {
@@ -507,6 +613,33 @@ async function uploadFiles(files) {
 }
 
 document.addEventListener("click", async event => {
+  const runAiBtn = event.target.closest("[data-run-deal-ai]");
+  if (runAiBtn) {
+    event.preventDefault();
+    return runDealAiAnalysis(runAiBtn.dataset.runDealAi);
+  }
+  const runRingBtn = event.target.closest("#btn-run-ai-ring");
+  if (runRingBtn) {
+    event.preventDefault();
+    return runRingAiAnalysis();
+  }
+  const copyBtn = event.target.closest("[data-copy-text]");
+  if (copyBtn) {
+    event.preventDefault();
+    const container = copyBtn.closest(".detail-card") || copyBtn.parentElement;
+    const textTarget = container?.querySelector(".copy-source") || copyBtn.closest("div")?.nextElementSibling;
+    const text = textTarget ? (textTarget.value || textTarget.innerText || textTarget.textContent) : "";
+    if (text) {
+      await navigator.clipboard.writeText(text.trim());
+      showToast("Copied to clipboard");
+    }
+    return;
+  }
+  if (event.target.closest("[data-close-ai-ring]")) {
+    event.preventDefault();
+    $("#ai-ring-panel")?.classList.add("hidden");
+    return;
+  }
   const authTab = event.target.closest("[data-auth-tab]");
   if (authTab) return setAuthTab(authTab.dataset.authTab);
   const nav = event.target.closest("[data-view]");
@@ -555,6 +688,32 @@ $("#export-button").addEventListener("click", async () => {
     URL.revokeObjectURL(url);
     showToast("Submission JSON generated and downloaded");
   } catch (error) { showToast(error.message, true); }
+});
+
+$("#btn-run-ai-ring")?.addEventListener("click", async () => {
+  const panel = $("#ai-ring-panel");
+  if (!panel) return;
+  panel.classList.remove("hidden");
+  panel.innerHTML = `<div style="display:flex;align-items:center;gap:12px;padding:20px;color:var(--text-muted)"><strong>✨ Gemini AI is analyzing cross-deal relationships, structuring, and historical anchors...</strong></div>`;
+  try {
+    const res = await api("/api/ai/investigate-ring", {method:"POST", body:"{}"});
+    renderAiRingPanel(res);
+  } catch (err) {
+    panel.innerHTML = `<div class="badge red" style="padding:12px">Analysis error: ${escapeHtml(err.message)}</div>`;
+  }
+});
+
+document.addEventListener("submit", async event => {
+  const askForm = event.target.closest("[data-ai-ask-deal]");
+  if (askForm) {
+    event.preventDefault();
+    const dealId = askForm.dataset.aiAskDeal;
+    const input = askForm.querySelector('input[name="question"]');
+    const question = input ? input.value.trim() : "";
+    if (!question) return;
+    input.value = "";
+    return runDealAiAnalysis(dealId, question);
+  }
 });
 
 $$("[data-auth-tab]").forEach(button => button.addEventListener("click", () => setAuthTab(button.dataset.authTab)));

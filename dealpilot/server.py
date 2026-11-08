@@ -5,7 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from . import auth, consumer, service
+from . import auth, consumer, gemini_advisor, service
 from .config import ROOT
 
 
@@ -24,7 +24,7 @@ class DealPilotHandler(BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header(
             "Content-Security-Policy",
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'",
         )
 
@@ -68,6 +68,12 @@ class DealPilotHandler(BaseHTTPRequestHandler):
             path = parsed.path
             if path == "/api/health":
                 return self.send_json({"status": "ok", "now": service.sim_now()})
+            if path == "/api/ai/status":
+                return self.send_json({
+                    "available": True,
+                    "key_configured": gemini_advisor.is_live_gemini_available(),
+                    "model": "gemini-1.5-flash",
+                })
             if path == "/api/auth/me":
                 return self.send_json({"user": self.user()})
             if path == "/api/consumer/applications":
@@ -166,6 +172,24 @@ class DealPilotHandler(BaseHTTPRequestHandler):
                 self.require_bank()
                 payload, output_path = service.export_submission(data.get("team", "DealPilot"), data.get("set", "sample"))
                 return self.send_json({"path": str(output_path), "submission": payload})
+            if path == "/api/ai/config":
+                gemini_advisor.set_api_key(data.get("api_key"))
+                return self.send_json({"ok": True, "key_configured": gemini_advisor.is_live_gemini_available()})
+            if path == "/api/ai/investigate-ring":
+                self.require_bank()
+                deals = service.get_deals()
+                flagged = [d for d in deals if d.get("fraud", {}).get("flagged")]
+                result = gemini_advisor.investigate_fraud_ring(flagged, deals)
+                return self.send_json(result)
+            if path == "/api/ai/investigate-deal":
+                self.require_bank()
+                identifier = data.get("deal_id")
+                question = data.get("question")
+                deal = service.get_deal(identifier) if identifier else None
+                if not deal:
+                    return self.send_json({"error": "Deal not found"}, HTTPStatus.NOT_FOUND)
+                result = gemini_advisor.investigate_deal_with_gemini(deal, question)
+                return self.send_json(result)
             return self.send_json({"error": "Unknown endpoint"}, HTTPStatus.NOT_FOUND)
         except PermissionError as exc:
             self.send_json({"error": str(exc)}, HTTPStatus.FORBIDDEN)

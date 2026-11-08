@@ -166,7 +166,15 @@
       </section>
 
       <section id="fraud-view" class="view">
-        <div class="view-intro"><div><p class="eyebrow">DEAL DNA</p><h2>Portfolio fraud network</h2><p>Repeated relationships across current and historical deals.</p></div></div>
+        <div class="view-intro" style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap">
+          <div><p class="eyebrow">DEAL DNA · AI/ML INVESTIGATION</p><h2>Portfolio fraud network</h2><p>Repeated relationships across current and historical deals.</p></div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <button class="button primary" id="btn-run-ai-ring" type="button" style="background:linear-gradient(135deg, #1e3a8a, #4338ca);border:none;box-shadow:0 4px 12px rgba(67,56,202,0.25)">
+              <span>✨</span> Run Gemini AI Investigation
+            </button>
+          </div>
+        </div>
+        <div id="ai-ring-panel" class="panel hidden" style="margin-bottom:20px;border-left:4px solid #4338ca;padding:24px"></div>
         <div class="layout-fraud">
           <section class="panel network-panel"><div id="network" class="network"></div></section>
           <section class="panel"><div class="panel-heading"><div><p class="eyebrow">EVIDENCE</p><h2>Flagged clusters</h2></div></div><div id="fraud-list"></div></section>

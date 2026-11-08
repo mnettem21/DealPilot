@@ -209,6 +209,7 @@ def submit_application(application_id, user):
         serialized = json.dumps(facts, sort_keys=True)
         digest = hashlib.sha256(serialized.encode()).hexdigest()
         path = f"portal://{application_id}/application.json"
+        doc_id = "doc_" + hashlib.sha256(f"{application_id}:{digest}".encode()).hexdigest()[:16]
         existing = conn.execute("SELECT id FROM documents WHERE path=?", (path,)).fetchone()
         if existing:
             conn.execute(
@@ -217,11 +218,11 @@ def submit_application(application_id, user):
             )
         else:
             conn.execute(
-                """INSERT INTO documents(
+                """INSERT OR REPLACE INTO documents(
                      id,deal_id,path,filename,checksum,arrived_at,document_type,status,
                      page_count,producer,extracted_text,facts_json,created_at
                    ) VALUES(?,?,?,?,?,?,'loan_application','PROCESSED',1,'DealPilot Portal','',?,?)""",
-                ("doc_" + digest[:16], row["deal_id"], path, "Digital Loan Application", digest, now, serialized, now),
+                (doc_id, row["deal_id"], path, "Digital Loan Application", digest, now, serialized, now),
             )
         conn.execute(
             "UPDATE deals SET evidence_version=evidence_version+1,operational_state='PROCESSING',updated_at=? WHERE id=?",
