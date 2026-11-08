@@ -72,7 +72,7 @@ class DealPilotHandler(BaseHTTPRequestHandler):
                 return self.send_json({
                     "available": True,
                     "key_configured": gemini_advisor.is_live_gemini_available(),
-                    "model": "gemini-1.5-flash",
+                    "model": "gemini-3.8-flash",
                 })
             if path == "/api/auth/me":
                 return self.send_json({"user": self.user()})

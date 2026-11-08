@@ -15,9 +15,17 @@ import urllib.error
 import warnings
 from typing import Any, Dict, List, Optional
 
+from .config import ROOT
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 _USER_CONFIGURED_KEY: Optional[str] = None
+_LAST_ERROR: Optional[str] = None
+_ACTIVE_MODEL: Optional[str] = None
+
+
+def get_last_error() -> Optional[str]:
+    return _LAST_ERROR
 
 
 def _get_ssl_context():
@@ -32,14 +40,34 @@ def _get_ssl_context():
 
 
 def get_api_key() -> Optional[str]:
-    """Retrieve Gemini API key from user config or environment."""
-    return _USER_CONFIGURED_KEY or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    """Retrieve Gemini API key from memory, env, or saved .gemini_key file."""
+    key = _USER_CONFIGURED_KEY or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if not key:
+        key_file = ROOT / ".gemini_key"
+        if key_file.exists():
+            try:
+                key = key_file.read_text().strip()
+            except Exception:
+                pass
+    if key:
+        cleaned = key.strip().strip("'\"").strip()
+        return cleaned if cleaned else None
+    return None
 
 
 def set_api_key(key: Optional[str]) -> None:
-    """Dynamically set the Gemini API key during the active session."""
+    """Dynamically set and persist the Gemini API key."""
     global _USER_CONFIGURED_KEY
-    _USER_CONFIGURED_KEY = key.strip() if key else None
+    cleaned = key.strip().strip("'\"").strip() if key else None
+    _USER_CONFIGURED_KEY = cleaned
+    key_file = ROOT / ".gemini_key"
+    try:
+        if cleaned:
+            key_file.write_text(cleaned)
+        elif key_file.exists():
+            key_file.unlink()
+    except Exception:
+        pass
 
 
 def is_live_gemini_available() -> bool:
@@ -47,14 +75,82 @@ def is_live_gemini_available() -> bool:
     return bool(get_api_key())
 
 
+_DISCOVERED_MODELS: Optional[List[str]] = None
+
+
+def get_available_models(api_key: str) -> List[str]:
+    """Query Google's ListModels API to discover exact supported models for this key."""
+    global _DISCOVERED_MODELS
+    if _DISCOVERED_MODELS:
+        return _DISCOVERED_MODELS
+
+    ctx = _get_ssl_context()
+    for version in ["v1beta", "v1"]:
+        try:
+            url = f"https://generativelanguage.googleapis.com/{version}/models?key={api_key}"
+            req = urllib.request.Request(
+                url,
+                headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
+                method="GET"
+            )
+            with urllib.request.urlopen(req, timeout=8, context=ctx) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                models = data.get("models", [])
+                available = [
+                    m["name"].replace("models/", "")
+                    for m in models
+                    if "generateContent" in m.get("supportedGenerationMethods", [])
+                    and "tts" not in m["name"].lower()
+                    and "embedding" not in m["name"].lower()
+                    and "imagen" not in m["name"].lower()
+                ]
+                if available:
+                    print(f"[DealPilot AI] Discovered {len(available)} text generation models from Google: {available[:6]}")
+                    # Prioritize universal modern production models that are not quota-capped or deprecated
+                    order = [
+                        "gemini-flash-latest",
+                        "gemini-flash-lite-latest",
+                        "gemini-pro-latest",
+                        "gemini-2.0-flash",
+                        "gemini-1.5-flash-latest",
+                        "gemini-pro",
+                    ]
+                    # Filter: prioritize order, exclude deprecated/preview/gemma/tts models
+                    prioritized = [m for m in order if m in available]
+                    remaining = [
+                        m for m in available
+                        if m not in prioritized
+                        and not m.startswith("gemma")
+                        and "preview" not in m
+                        and "2.5" not in m
+                    ]
+                    _DISCOVERED_MODELS = prioritized + remaining
+                    print(f"[DealPilot AI] Active model selection priority: {_DISCOVERED_MODELS[:3]}")
+                    return _DISCOVERED_MODELS
+        except Exception:
+            continue
+
+    _DISCOVERED_MODELS = [
+        "gemini-flash-latest",
+        "gemini-flash-lite-latest",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash-latest",
+        "gemini-pro",
+    ]
+    return _DISCOVERED_MODELS
+
+
 def call_gemini(prompt: str, system_instruction: Optional[str] = None) -> Optional[str]:
     """Call Gemini API via REST endpoint or google.generativeai SDK."""
+    global _LAST_ERROR
+    _LAST_ERROR = None
+
     api_key = get_api_key()
     if not api_key:
+        _LAST_ERROR = "No GEMINI_API_KEY provided"
         return None
 
-    # First attempt: direct REST API to Google Generative Language
-    models_to_try = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
+    models_to_try = get_available_models(api_key)
     for model in models_to_try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         payload = {
@@ -78,18 +174,29 @@ def call_gemini(prompt: str, system_instruction: Optional[str] = None) -> Option
             req = urllib.request.Request(
                 url,
                 data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": api_key,
+                },
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=12, context=ctx) as resp:
+            with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 candidates = data.get("candidates", [])
                 if candidates:
                     parts = candidates[0].get("content", {}).get("parts", [])
                     if parts and "text" in parts[0]:
-                        print(f"[DealPilot AI] Generated response using {model}")
+                        _ACTIVE_MODEL = model
+                        print(f"[DealPilot AI] Successfully generated response using live {model}!")
                         return parts[0]["text"]
-        except Exception:
+        except urllib.error.HTTPError as exc:
+            err_body = exc.read().decode("utf-8", errors="replace")
+            _LAST_ERROR = f"HTTP {exc.code}: {err_body[:180]}"
+            print(f"[DealPilot AI] REST API Error ({model}): {_LAST_ERROR}")
+            continue
+        except Exception as exc:
+            _LAST_ERROR = str(exc)
+            print(f"[DealPilot AI] Connection Error ({model}): {exc}")
             continue
 
     # Fallback to google.generativeai SDK if installed and configured
@@ -98,13 +205,23 @@ def call_gemini(prompt: str, system_instruction: Optional[str] = None) -> Option
             warnings.simplefilter("ignore")
             import google.generativeai as genai
             genai.configure(api_key=api_key)
-            m = genai.GenerativeModel("gemini-1.5-flash")
+            target_model = "gemini-1.5-flash"
+            try:
+                for m in genai.list_models():
+                    if "generateContent" in m.supported_generation_methods:
+                        target_model = m.name
+                        break
+            except Exception:
+                pass
+            m = genai.GenerativeModel(target_model)
             resp = m.generate_content(prompt)
             if resp and resp.text:
-                print("[DealPilot AI] Generated response using google.generativeai SDK")
+                _ACTIVE_MODEL = target_model
+                print(f"[DealPilot AI] Generated response using google.generativeai SDK ({target_model})!")
                 return resp.text
-    except Exception:
-        pass
+    except Exception as exc:
+        _LAST_ERROR = f"SDK Error: {exc}"
+        print(f"[DealPilot AI] Gemini SDK error: {exc}")
 
     return None
 
@@ -163,14 +280,17 @@ Return ONLY valid JSON.
             if cleaned.endswith("```"):
                 cleaned = cleaned[:-3]
             parsed = json.loads(cleaned.strip())
-            parsed["ai_provider"] = "Gemini 1.5 Flash (Live Foundation Model)"
+            parsed["ai_provider"] = f"Google Gemini ({_ACTIVE_MODEL or 'Live'})"
             return parsed
         except Exception:
             pass
 
-    # High-fidelity built-in forensic intelligence (deterministic AI analyst fallback)
+    err = get_last_error()
+    provider = "DealPilot AI Forensic Reasoning Engine (Gemini-Optimized)"
+    if get_api_key() and err:
+        provider = f"DealPilot AI Engine (Notice: {err})"
     return {
-        "ai_provider": "DealPilot AI Forensic Reasoning Engine (Gemini-Optimized)",
+        "ai_provider": provider,
         "verdict": "CONFIRMED_COORDINATED_FRAUD_RING",
         "confidence_score": 0.99,
         "executive_summary": (
@@ -251,7 +371,7 @@ Provide a concise, professional answer with specific evidence citations.
     live_response = call_gemini(prompt, system_instruction)
     if live_response:
         return {
-            "ai_provider": "Gemini 1.5 Flash (Live)",
+            "ai_provider": f"Google Gemini ({_ACTIVE_MODEL or 'Live'})",
             "deal_id": deal.get("id"),
             "folder": folder,
             "answer": live_response.strip(),
@@ -285,8 +405,12 @@ Provide a concise, professional answer with specific evidence citations.
             f"• **Recommendation:** Eligible for standard credit officer review and committee progression."
         )
 
+    err = get_last_error()
+    provider = "DealPilot AI Forensic Reasoning Engine"
+    if get_api_key() and err:
+        provider = f"DealPilot AI Engine (Notice: {err})"
     return {
-        "ai_provider": "DealPilot AI Forensic Reasoning Engine",
+        "ai_provider": provider,
         "deal_id": deal.get("id"),
         "folder": folder,
         "answer": answer,

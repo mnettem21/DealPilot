@@ -443,7 +443,26 @@ function showWorkspace(user) {
     $("#active-role").textContent = roleName;
     $("#bank-user-name").textContent = user.display_name;
     refresh();
+    checkAiStatus();
   }
+}
+
+async function checkAiStatus() {
+  try {
+    const status = await api("/api/ai/status");
+    const btn = $("#gemini-key-btn");
+    if (btn) {
+      if (status.key_configured) {
+        btn.innerHTML = `<span style="color:#16a34a;font-weight:bold">●</span> Gemini Active`;
+        btn.style.borderColor = "#16a34a";
+        btn.title = "Gemini API key is configured and active. Click to update.";
+      } else {
+        btn.innerHTML = `🔑 Configure Gemini`;
+        btn.style.borderColor = "";
+        btn.title = "Click to set your Gemini API key";
+      }
+    }
+  } catch (e) {}
 }
 
 async function bootstrapAuth() {
@@ -688,6 +707,28 @@ $("#export-button").addEventListener("click", async () => {
     URL.revokeObjectURL(url);
     showToast("Submission JSON generated and downloaded");
   } catch (error) { showToast(error.message, true); }
+});
+
+$("#gemini-key-btn")?.addEventListener("click", async () => {
+  const currentKey = prompt("Paste your Google Gemini API Key (starts with AIzaSy...):");
+  if (currentKey === null) return;
+  const key = currentKey.trim();
+  if (!key) {
+    await api("/api/ai/config", { method: "POST", body: JSON.stringify({ api_key: "" }) });
+    showToast("Gemini API key cleared (using built-in engine)");
+    await checkAiStatus();
+    return;
+  }
+  showToast("Saving Gemini API key...");
+  try {
+    const res = await api("/api/ai/config", { method: "POST", body: JSON.stringify({ api_key: key }) });
+    if (res.ok) {
+      showToast("Gemini API key connected and saved successfully!");
+      await checkAiStatus();
+    }
+  } catch (err) {
+    showToast(`Error saving key: ${err.message}`, true);
+  }
 });
 
 $("#btn-run-ai-ring")?.addEventListener("click", async () => {
