@@ -1,0 +1,15 @@
+{"deals": {
+  "Garza Family Pharmacy": {"fraud": false, "reached": "Closed"},
+  "tyler loopwise loan stuff": {"fraud": false, "reached": "Closed"},
+  "Oakline Auto": {"fraud": false, "reached": "Closed"},
+  "Okafor Advisory - James": {"fraud": false, "reached": "Closed"},
+  "Priya's Bakery": {"fraud": false, "reached": "Closed"},
+  "Harbor Tea Co": {"fraud": false, "reached": "Closed"},
+  "Westfield Print & Sign": {"fraud": false, "reached": "Closed"},
+  "Bluebonnet Landscape": {"fraud": false, "reached": "Product"},
+  "LSFD_docs": {"fraud": false, "reached": "Product"},
+  "Ridgeway Freight Logistics": {"fraud": true, "reached": "declined"},
+  "Pecan Grove Catering": {"fraud": true, "reached": "declined"},
+  "Summit Peak Flooring": {"fraud": true, "reached": "declined"},
+  "Granite Bay Building Supply": {"fraud": true, "reached": "declined", "issues_include": ["OLD_TRICK:STMT_TAMPER", "OLD_TRICK:REV_INFLATION"]}
+ }, "history_flags": ["H-2608-002", "H-2609-008"]}

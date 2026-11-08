@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DealPilot</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1b2430;--mute:#667085;--line:#e3e7ee;--accent:#2457d6;--ok:#17803d;--warn:#b45309;--bad:#c42b2b;--badbg:#fdecec;--warnbg:#fff4e0;--okbg:#e6f6ec}
+@media (prefers-color-scheme:dark){:root{--bg:#10141b;--card:#181e28;--ink:#e8ecf3;--mute:#98a2b3;--line:#283042;--accent:#7aa2ff;--ok:#5fd28a;--warn:#f3b25c;--bad:#ff7b7b;--badbg:#3a1d21;--warnbg:#3a2d16;--okbg:#16301f}}
+*{box-sizing:border-box}body{margin:0;font:14px/1.4 -apple-system,system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
+header{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+h1{font-size:16px;margin:0 12px 0 0}.clock{font-weight:600;font-variant-numeric:tabular-nums}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:5px 10px;border-radius:7px;cursor:pointer}
+button:hover{border-color:var(--accent)}button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.danger{color:var(--bad)}.sp{flex:1}
+main{padding:16px;display:grid;gap:16px}
+section h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);margin:0 0 8px}
+.board{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:10px;overflow-x:auto}
+.col{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px;min-height:90px}
+.col h3{margin:0 0 6px;font-size:12px;color:var(--mute)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px;cursor:pointer}
+.card:hover{border-color:var(--accent)}.card{overflow-wrap:anywhere}.card b{display:block}.mute{color:var(--mute);font-size:12px}
+.chip{display:inline-block;font-size:11px;padding:1px 7px;border-radius:99px;margin:2px 3px 0 0;background:var(--line)}
+.chip.bad{background:var(--badbg);color:var(--bad)}.chip.warn{background:var(--warnbg);color:var(--warn)}.chip.ok{background:var(--okbg);color:var(--ok)}
+.bar{height:4px;background:var(--line);border-radius:4px;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent)}.bar i.over{background:var(--bad)}
+.two{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:16px}
+@media(max-width:900px){.two{grid-template-columns:1fr}.board{grid-template-columns:repeat(6,200px)}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px}
+.req{border-bottom:1px solid var(--line);padding:8px 0}.req:last-child{border:0}.req .btns{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}
+.alert{border-left:3px solid var(--warn);padding:4px 8px;margin-bottom:6px;font-size:13px}.alert.esc{border-color:var(--bad)}
+.ring{border:1px solid var(--bad);background:var(--badbg);border-radius:8px;padding:8px;margin-bottom:8px;font-size:13px}
+#drawer{position:fixed;right:0;top:0;bottom:0;width:min(560px,100%);background:var(--card);border-left:1px solid var(--line);padding:16px;overflow:auto;transform:translateX(100%);transition:.2s;z-index:10}
+#drawer.open{transform:none}#drawer table{width:100%;border-collapse:collapse}#drawer td{padding:3px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+#drawer td:first-child{color:var(--mute);white-space:nowrap}.empty{color:var(--mute);font-size:13px;padding:6px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>DealPilot</h1><span class="clock" id="clock">…</span>
+  <button data-adv="1h">+1h</button><button data-adv="4h">+4h</button><button data-adv="1d">+1 day</button>
+  <span class="sp"></span>
+  <button id="auto" title="Answer every pending request: sign-offs yes, fraud holds hold">Auto-answer all</button>
+  <button id="export">Export submission.json</button>
+  <button id="reset" class="danger">Reset week</button>
+</header>
+<main>
+  <section><h2>Deal board</h2><div class="board" id="board"></div></section>
+  <div class="two">
+    <section><h2>Waiting on a human (<span id="npend">0</span>)</h2><div class="panel" id="pending"></div></section>
+    <section><h2>Fraud watch</h2><div class="panel" id="fraud"></div>
+      <h2 style="margin-top:14px">Patterns found (<span id="nrules">0</span>)</h2><div class="panel" id="rules"></div>
+      <h2 style="margin-top:14px">Alerts &amp; escalations</h2><div class="panel" id="alerts"></div></section>
+  </div>
+</main>
+<aside id="drawer"></aside>
+<script>
+const $=s=>document.querySelector(s), STAGES=["Intake","Credit","Committee","Product","Committed","Closed"];
+const money=n=>n==null?"—":"$"+Math.round(n).toLocaleString();
+const t=s=>s?s.slice(5,16).replace("T"," "):"—";
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let S=null;
+async function api(path,body){const r=await fetch(path,body?{method:"POST",body:JSON.stringify(body)}:{});const j=await r.json();if(j.error){alert(j.error);return S}return j}
+async function load(path,body){S=await api(path,body);render()}
+function chips(d){let h="";
+  if(d.fraud.flagged)h+=`<span class="chip bad">${d.fraud.held?"fraud hold":"flagged"}</span>`;
+  else if(d.fraud.level==="warning")h+=`<span class="chip warn">fraud warning</span>`;
+  if(d.status==="declined"||d.status==="withdrawn")h+=`<span class="chip">${d.status}</span>`;
+  if(d.needed_by)h+=`<span class="chip warn">needed by ${t(d.needed_by)}</span>`;
+  if(d.baseline)h+=`<span class="chip warn" title="${esc(d.baseline)}">above own history</span>`;
+  d.issues.filter(i=>!i.startsWith("OLD_TRICK")).slice(0,3).forEach(i=>h+=`<span class="chip warn">${esc(i.replace("MISSING_DOC:","missing ").replace("MISMATCH:","mismatch ").replace("MISSING_PAGE:","page missing "))}</span>`);
+  return h}
+function card(d){const pct=d.sla?Math.min(100,d.hours/d.sla*100):0;
+  return `<div class="card" data-d="${esc(d.name)}"><b>${esc(d.legal_name||d.name)}</b><span class="mute">${money(d.amount)} · ${esc(d.product||"")}</span><br>${chips(d)}
+  <div class="mute" style="margin-top:4px">${esc(d.waiting_on||"")}</div>
+  ${d.risk?`<div class="mute">Forecast done ${t(d.risk.p50)}–${t(d.risk.p90)}${d.risk.deadline?` · <b style="color:var(--${d.risk.deadline==="at risk"?"bad":"ok"})">${d.risk.deadline} for ${t(d.risk.needed_by)}</b>`:""}</div>`:""}
+  ${d.sla?`<div class="bar"><i class="${d.hours>d.sla?"over":""}" style="width:${pct}%"></i></div><div class="mute">${d.hours}h of ${d.sla}h</div>`:""}</div>`}
+function render(){
+  $("#clock").textContent=new Date(S.now).toLocaleString("en-US",{weekday:"short",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"America/Chicago"}).replace("Z","")+" (sim)";
+  $("#clock").textContent="Sim time: "+S.now.slice(0,16).replace("T"," ");
+  const cols=STAGES.map(st=>{
+    const ds=S.deals.filter(d=>d.stage===st&&(d.status==="active"||(st==="Closed"&&d.status==="closed")));
+    return `<div class="col"><h3>${st} (${ds.length})</h3>${ds.map(card).join("")||'<div class="empty">—</div>'}</div>`});
+  const stopped=S.deals.filter(d=>["held","declined","withdrawn"].includes(d.status));
+  $("#board").innerHTML=cols.join("");
+  if(stopped.length)$("#board").innerHTML+=`<div class="col" style="border-color:var(--bad)"><h3>Stopped (${stopped.length})</h3>${stopped.map(card).join("")}</div>`;
+  $("#board").style.gridTemplateColumns=`repeat(${stopped.length?7:6},minmax(150px,1fr))`;
+  $("#npend").textContent=S.pending.length;
+  $("#pending").innerHTML=S.pending.length?S.pending.map(r=>`<div class="req"><b>${esc(r.deal)}</b> <span class="chip">${esc(r.type.replace(/_/g," "))}</span> <span class="mute">to ${esc(r.to_name)} · ${t(r.at)}</span>
+    <div>${esc(r.message)}</div><div class="btns">${r.options.map((o,i)=>`<button class="${i==0?"primary":""}" data-a="${esc(r.deal)}|${r.id}|${o}">${esc(o.replace(/_/g," "))}</button>`).join("")}</div></div>`).join(""):'<div class="empty">Nothing waiting. Advance the clock.</div>';
+  $("#fraud").innerHTML=S.fraud.length?S.fraud.map(f=>`<div class="ring"><b>Pattern across ${f.members.length} current deal(s)${f.history.length?" + "+f.history.length+" in history":""}</b><br>${f.members.map(esc).join(", ")}${f.history.length?"<br>History: "+f.history.join(", "):""}<br><span class="mute">${esc((f.reason||"").slice(0,420))}…</span></div>`).join(""):'<div class="empty">No pattern flagged yet.</div>';
+  $("#nrules").textContent=S.rules.length;
+  $("#rules").innerHTML=S.rules.length?S.rules.map(r=>`<div class="req"><span class="chip ${r.status==="active"?"bad":r.status==="proposed"?"warn":""}">${r.status}</span> <b>${esc(r.support.join(", "))}</b>
+    <div class="mute">${esc(r.tokens.slice(0,6).map(x=>x.replace("=",": ").replace(/_/g," ")).join(" · "))}</div>${r.status==="proposed"?`<div class="btns"><button class="primary" data-r="${r.id}|approve">Approve as rule</button><button data-r="${r.id}|reject">Reject</button></div>`:""}</div>`).join(""):'<div class="empty">No patterns proposed yet.</div>';
+  $("#alerts").innerHTML=S.alerts.length?S.alerts.slice(0,12).map(a=>`<div class="alert ${a.level==="escalation"?"esc":""}"><b>${a.level} → ${esc(a.to_name)}</b> <span class="mute">${t(a.at)} · ${esc(a.stage)}</span><br>${esc(a.message)}</div>`).join(""):'<div class="empty">No stuck deals.</div>'}
+document.addEventListener("click",async e=>{
+  const adv=e.target.closest("[data-adv]");if(adv)return load("/api/advance",{by:adv.dataset.adv});
+  const a=e.target.closest("[data-a]");if(a){const[deal,id,ans]=a.dataset.a.split("|");return load("/api/answer",{deal,id,answer:ans})}
+  const ru=e.target.closest("[data-r]");if(ru){const[id,decision]=ru.dataset.r.split("|");return load("/api/rule",{id,decision})}
+  const c=e.target.closest(".card");if(c)return openDeal(c.dataset.d);
+  if(e.target.id==="close")$("#drawer").classList.remove("open")});
+$("#auto").onclick=()=>load("/api/auto",{});
+$("#reset").onclick=()=>confirm("Reset the sim week to Mon 08:00?")&&load("/api/reset",{});
+$("#export").onclick=async()=>{const r=await api("/api/export",{});alert("Wrote "+r.wrote)};
+async function openDeal(name){
+  const d=await (await fetch("/api/deal?name="+encodeURIComponent(name))).json(),f=d.facts||{};
+  const row=(k,v)=>`<tr><td>${k}</td><td>${esc(v)}</td></tr>`;
+  $("#drawer").innerHTML=`<button id="close" style="float:right">Close</button><h2 style="margin:0">${esc(f.legal_name||name)}</h2><div class="mute">${esc(name)} · ${esc(d.status)} · ${esc(d.stage)}</div>
+  <h3>What I read</h3><table>${row("EIN",f.ein)}${row("Amount",money(f.amount_requested))}${row("Product / purpose",(f.product||"")+" / "+(f.purpose_category||""))}${row("Term",f.term_months+" months")}${row("Guarantor",f.guarantor_name)}${row("Stated revenue",money(f.annual_revenue_stated))}${row("Needed by",f.needed_by||"no date")}</table>
+  <h3>Issues</h3>${(d.issues||[]).map(i=>`<div class="chip warn">${esc(i)}</div> ${esc(d.notes[i]||"")}<br>`).join("")||'<div class="empty">None</div>'}
+  ${d.fraud.flagged?`<h3>Fraud</h3><div class="ring">${esc(d.fraud.reason)}<br><b>Linked:</b> ${esc((d.fraud.linked_deals||[]).join(", "))}</div>`:""}
+  <h3>Stage log</h3><table>${d.stage_log.map(s=>`<tr><td>${s.stage}<br>${t(s.entered_at)}→${t(s.exited_at)}</td><td><b>${esc(s.decision||"in progress")}</b> ${esc(s.why||"")}</td></tr>`).join("")}</table>
+  <h3>Human requests</h3><table>${d.human_requests.map(r=>`<tr><td>${esc(r.type)}<br>${t(r.at)}</td><td>to ${esc(r.to)} → <b>${esc(r.answer||"waiting")}</b><br><span class="mute">${esc(r.message.slice(0,260))}</span></td></tr>`).join("")}</table>`;
+  $("#drawer").classList.add("open")}
+load("/api/state");setInterval(()=>{if(!$("#drawer").classList.contains("open"))fetch("/api/state").then(r=>r.json()).then(j=>{S=j;render()})},4000);
+</script>
+</body>
+</html>
