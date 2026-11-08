@@ -1,0 +1,10 @@
+.git
+shared_folder
+output
+data
+tmp
+web
+history
+**/*.pdf
+**/*.png
+**/*.jpg
