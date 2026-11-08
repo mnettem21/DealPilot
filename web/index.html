@@ -3,112 +3,599 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="DealPilot commercial lending control tower">
-  <title>DealPilot</title>
+  <meta name="description" content="DealPilot PocketBase commercial lending control tower">
+  <title>Underight — PocketBase Control Tower</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <section id="auth-screen" class="auth-screen">
-    <div class="auth-story">
-      <div class="auth-brand"><span>DP</span><strong>DealPilot</strong></div>
-      <p class="eyebrow">ONE SECURE LENDING WORKSPACE</p>
-      <h1>From application to a safe close.</h1>
-      <p>Borrowers submit one structured package. Bank teams receive verified evidence, prioritized work, explainable scores, and fraud-network intelligence.</p>
-      <div class="auth-proof">
-        <div><strong>Step-by-step</strong><span>Guided borrower intake</span></div>
-        <div><strong>Explainable</strong><span>Every score shows its reasons</span></div>
-        <div><strong>Human-controlled</strong><span>No AI-only funding decisions</span></div>
+  <!-- ========================================== -->
+  <!-- 1. Dedicated Borrower Customer Portal (Sign In & Sign Up) -->
+  <!-- ========================================== -->
+  <div id="borrower-auth-screen" class="auth-wrapper">
+    <div class="auth-card-container" style="max-width:760px;">
+      <!-- Customer Portal Header -->
+      <div class="auth-header">
+        <div class="customer-badge-pill" style="display:inline-flex;align-items:center;gap:6px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;font-size:12px;font-weight:700;padding:5px 14px;border-radius:999px;margin-bottom:10px;">
+          <span>🏢</span> Trinity Commercial Bank • Commercial Borrower Portal
+        </div>
+        <div class="brand" style="justify-content:center;margin:12px 0 8px;">
+          <div class="brand-mark" style="width:52px;height:52px;font-size:22px;background:linear-gradient(135deg, #059669, #047857);">TCB</div>
+          <div style="text-align:left;">
+            <strong style="font-size:26px;color:#0f291e;letter-spacing:-0.02em;">Trinity Commercial</strong>
+            <span style="font-size:13px;color:#155d42;font-weight:700;">Commercial Loan Customer Portal</span>
+          </div>
+        </div>
+        <h1 style="font-size:30px;color:#0f291e;margin:0 0 8px;font-weight:800;letter-spacing:-0.03em;">Borrower Portal</h1>
+        <p style="color:#4a5d52;font-size:14px;max-width:580px;margin:0 auto;line-height:1.5;">
+          Sign in to view your commercial loan underwriting status and submit required documentation, or apply for new business capital.
+        </p>
+      </div>
+
+      <!-- Borrower Portal Tabs: Sign In vs Create Account -->
+      <div class="borrower-portal-card" style="background:white;border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 36px rgba(15,23,42,0.06);padding:28px;text-align:left;">
+        <div class="borrower-tabs" style="display:flex;gap:10px;border-bottom:1px solid #e2e8f0;padding-bottom:14px;margin-bottom:20px;">
+          <button type="button" id="tab-borrower-login-btn" class="borrower-tab-btn active" style="flex:1;padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px;border:none;background:#ecfdf5;color:#065f46;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+            <span>🔑</span> Sign In to Existing Application
+          </button>
+          <button type="button" id="tab-borrower-register-btn" class="borrower-tab-btn" style="flex:1;padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px;border:1px solid transparent;background:#f8fafc;color:#64748b;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+            <span>📝</span> Apply for Loan / Create Account
+          </button>
+        </div>
+
+        <!-- 1. Sign In Tab Content -->
+        <div id="borrower-login-pane">
+          <!-- Fast Fill Demo Borrower Accounts -->
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">
+              Quick Demo Borrower Accounts:
+            </label>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              <button type="button" class="demo-borrower-chip" data-borrower-email="dave@oaklineauto.example" data-borrower-pass="DealPilot2026!" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#f8fafc;font-size:12px;font-weight:600;color:#334155;cursor:pointer;">
+                🚗 Oakline Auto ($150k)
+              </button>
+              <button type="button" class="demo-borrower-chip" data-borrower-email="borrower@ridgewayfreight.example" data-borrower-pass="DealPilot2026!" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#f8fafc;font-size:12px;font-weight:600;color:#334155;cursor:pointer;">
+                🚛 Ridgeway Freight ($350k)
+              </button>
+              <button type="button" class="demo-borrower-chip" data-borrower-email="sarah@apexindustrial.example" data-borrower-pass="DealPilot2026!" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#f8fafc;font-size:12px;font-weight:600;color:#334155;cursor:pointer;">
+                🏭 Apex Industrial ($280k)
+              </button>
+              <button type="button" class="demo-borrower-chip" data-borrower-email="applicant@metroplexdental.example" data-borrower-pass="DealPilot2026!" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#f8fafc;font-size:12px;font-weight:600;color:#334155;cursor:pointer;">
+                🦷 Metroplex Dental ($420k)
+              </button>
+            </div>
+          </div>
+
+          <form id="form-borrower-login" style="display:flex;flex-direction:column;gap:14px;">
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#1e293b;">
+              Borrower Business Email
+              <input id="borrower-login-email" type="email" placeholder="e.g. dave@oaklineauto.example" required style="padding:11px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;">
+            </label>
+
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#1e293b;">
+              Account Password
+              <div style="position:relative;display:flex;align-items:center;">
+                <input id="borrower-login-pass" type="password" placeholder="Enter your password..." required style="padding:11px 40px 11px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;width:100%;">
+                <button type="button" id="btn-toggle-borrower-login-pass" style="position:absolute;right:10px;background:none;border:none;cursor:pointer;font-size:16px;color:#64748b;" title="Show/Hide Password">👁️</button>
+              </div>
+            </label>
+
+            <button type="submit" class="button primary" style="padding:12px;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px;">
+              <span>Access Loan Application Portal</span> →
+            </button>
+          </form>
+        </div>
+
+        <!-- 2. Register / Apply Tab Content -->
+        <div id="borrower-register-pane" class="hidden">
+          <form id="form-borrower-register" style="display:flex;flex-direction:column;gap:14px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#1e293b;">
+                Business Legal Name *
+                <input id="borrower-reg-biz" type="text" placeholder="e.g. Oakline Auto Inc." required style="padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;">
+              </label>
+
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#1e293b;">
+                Guarantor / Owner Full Name *
+                <input id="borrower-reg-name" type="text" placeholder="e.g. David Vance" required style="padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;">
+              </label>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#1e293b;">
+                Business Email Address *
+                <input id="borrower-reg-email" type="email" placeholder="e.g. contact@business.example" required style="padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;">
+              </label>
+
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#1e293b;">
+                Create Account Password *
+                <div style="position:relative;display:flex;align-items:center;">
+                  <input id="borrower-reg-pass" type="password" placeholder="Create secure password..." required style="padding:10px 36px 10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;width:100%;">
+                  <button type="button" id="btn-toggle-borrower-reg-pass" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;font-size:15px;color:#64748b;" title="Show/Hide Password">👁️</button>
+                </div>
+              </label>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#1e293b;">
+                Requested Loan Amount ($) *
+                <input id="borrower-reg-amount" type="number" step="1000" min="10000" placeholder="150000" required style="padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;">
+              </label>
+
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#1e293b;">
+                Primary Purpose of Loan
+                <select id="borrower-reg-purpose" style="padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:white;">
+                  <option value="working_capital">Working Capital</option>
+                  <option value="equipment">Equipment Purchase</option>
+                  <option value="expansion">Facility Expansion</option>
+                  <option value="inventory">Inventory Procurement</option>
+                  <option value="refinance">Debt Refinance</option>
+                </select>
+              </label>
+            </div>
+
+            <button type="submit" class="button primary" style="padding:12px;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px;">
+              <span>Submit Application & Register</span> →
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Discreet Bank Staff Link at Bottom -->
+      <div style="margin-top:24px;padding-top:16px;border-top:1px solid rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:center;gap:10px;">
+        <span style="font-size:12px;color:#64748b;">🏛️ Trinity Commercial Bank Personnel Only:</span>
+        <button type="button" id="btn-goto-staff-portal" class="button ghost" style="font-size:12px;padding:6px 12px;color:#065f46;border-color:#a7f3d0;background:#ecfdf5;">
+          <span>🔒</span> Bank Officer Workstation Clearance →
+        </button>
       </div>
     </div>
-    <div class="auth-card">
-      <div class="auth-tabs">
-        <button class="auth-tab active" data-auth-tab="login">Sign in</button>
-        <button class="auth-tab" data-auth-tab="signup">Create borrower account</button>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 2. Authentic Bank Officer Authentication Screen -->
+  <!-- ========================================== -->
+  <div id="auth-screen" class="auth-wrapper hidden">
+    <div class="auth-card-container">
+      <!-- Back to Borrower Portal Link -->
+      <div style="display:flex;justify-content:flex-start;margin-bottom:12px;">
+        <button type="button" id="btn-goto-borrower-portal" class="button ghost" style="font-size:12px;padding:6px 14px;display:flex;align-items:center;gap:6px;background:white;">
+          <span>←</span> Back to Borrower Customer Portal
+        </button>
       </div>
-      <form id="login-form" class="auth-form">
-        <div><p class="eyebrow">BORROWER PORTAL</p><h2>Welcome back</h2><p>Continue your business loan application.</p></div>
-        <label>Email<input name="email" type="email" autocomplete="email" required></label>
-        <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
-        <button class="button primary wide" type="submit">Sign in securely</button>
-      </form>
-      <form id="signup-form" class="auth-form hidden">
-        <div><p class="eyebrow">NEW BORROWER</p><h2>Create your secure workspace</h2><p>Your password is salted and one-way derived; it is never displayed or stored in plain text.</p></div>
-        <div class="form-grid two"><label>Your name<input name="display_name" autocomplete="name" required></label><label>Business name<input name="organization" autocomplete="organization" required></label></div>
-        <label>Email<input name="email" type="email" autocomplete="email" required></label>
-        <label>Password<input name="password" type="password" minlength="12" autocomplete="new-password" placeholder="12+ characters, uppercase, lowercase, number" required></label>
-        <button class="button primary wide" type="submit">Create borrower account</button>
-      </form>
-      <form id="bank-login-form" class="auth-form hidden">
-        <div><p class="eyebrow">AUTHORIZED BANK PERSONNEL</p><h2>Bank workspace sign in</h2><p>Use your Trinity Commercial Bank employee credentials. Borrower accounts cannot enter this workspace.</p></div>
-        <label>Employee email<input name="email" type="email" autocomplete="username" required></label>
-        <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
-        <button class="button primary wide" type="submit">Sign in to bank workspace</button>
-        <button class="text-button" type="button" data-auth-tab="login">← Back to borrower sign in</button>
-      </form>
-      <p id="auth-error" class="form-error" role="alert"></p>
-      <div id="bank-entry" class="bank-demo">
-        <div><strong>Are you a bank employee?</strong><span>The bank workspace requires a separate authorized employee account.</span></div>
-        <button id="bank-login-button" class="button ghost wide" style="margin-top:13px">Open bank sign-in</button>
+      <!-- High-Tech Security Clearance Header -->
+      <div class="auth-header">
+        <div class="auth-telemetry-pill">
+          <span class="telemetry-beacon"></span>
+          <span>SOC-2 TYPE II WORKSTATION ENVIRONMENT • 256-BIT TLS • POCKETBASE NODE</span>
+        </div>
+        <div class="brand" style="justify-content:center;margin:14px 0 10px;">
+          <div class="brand-mark" style="width:54px;height:54px;font-size:24px;box-shadow:0 8px 24px rgba(16,185,129,0.25);">DP</div>
+          <div style="text-align:left;">
+            <strong style="font-size:26px;color:#0f291e;letter-spacing:-0.02em;">Underight</strong>
+            <span style="font-size:13px;color:#155d42;font-weight:700;">Trinity Commercial Bank • Workstation Clearance Portal</span>
+          </div>
+        </div>
+        <h1 style="font-size:30px;color:#0f291e;margin:0 0 8px;font-weight:800;letter-spacing:-0.03em;">Commercial Lending Portal</h1>
+        <p style="color:#4a5d52;font-size:14px;max-width:620px;margin:0 auto;line-height:1.5;">
+          Select your authorized bank officer profile to unlock your departmental terminal, or enter your institutional credentials. Workstation passwords are strictly required for security isolation.
+        </p>
+      </div>
+
+      <!-- Account Selection Cards Grid -->
+      <div class="auth-accounts-grid">
+        <!-- 1. Chief Lending Officer (Admin) -->
+        <article class="account-card card-admin" data-auth-card="lauren.kim">
+          <div class="account-card-top">
+            <span class="account-avatar admin">LK</span>
+            <div>
+              <span class="badge green">Executive & Operations</span>
+              <h3 class="account-name">Lauren Kim</h3>
+              <p class="account-role">👑 Chief Lending Officer (Admin)</p>
+            </div>
+          </div>
+          <div class="account-desc">
+            Whole Access: Can view all tables, approve any stage, run fraud scans, release holds, and disburse capital.
+          </div>
+          <div class="account-email">lauren.kim@trinitycommercial.example</div>
+          <button type="button" class="button primary account-btn" data-auth-card="lauren.kim">
+            <span>🔐</span> Unlock Workstation
+          </button>
+        </article>
+
+        <!-- 2. Intake Specialist -->
+        <article class="account-card card-intake" data-auth-card="olivia.chen">
+          <div class="account-card-top">
+            <span class="account-avatar intake">OC</span>
+            <div>
+              <span class="badge blue">Intake Operations</span>
+              <h3 class="account-name">Olivia Chen</h3>
+              <p class="account-role">📥 Intake Specialist</p>
+            </div>
+          </div>
+          <div class="account-desc">
+            Intake Only: Restricted exclusively to intake records and initial filings. Other stage queues are locked.
+          </div>
+          <div class="account-email">olivia.chen@trinitycommercial.example</div>
+          <button type="button" class="button ghost account-btn" data-auth-card="olivia.chen">
+            <span>🔐</span> Unlock Workstation
+          </button>
+        </article>
+
+        <!-- 3. Credit Officer -->
+        <article class="account-card card-credit" data-auth-card="marcus.lee">
+          <div class="account-card-top">
+            <span class="account-avatar credit">ML</span>
+            <div>
+              <span class="badge blue">Credit Underwriting</span>
+              <h3 class="account-name">Marcus Lee</h3>
+              <p class="account-role">💳 Credit Officer</p>
+            </div>
+          </div>
+          <div class="account-desc">
+            Credit Only: Restricted exclusively to credit records, financial spreads, and bank statements.
+          </div>
+          <div class="account-email">marcus.lee@trinitycommercial.example</div>
+          <button type="button" class="button ghost account-btn" data-auth-card="marcus.lee">
+            <span>🔐</span> Unlock Workstation
+          </button>
+        </article>
+
+        <!-- 4. Committee Approver -->
+        <article class="account-card card-committee" data-auth-card="priscilla.nguyen">
+          <div class="account-card-top">
+            <span class="account-avatar committee">PN</span>
+            <div>
+              <span class="badge purple">Credit Committee</span>
+              <h3 class="account-name">Priscilla Nguyen</h3>
+              <p class="account-role">👥 Committee Chair</p>
+            </div>
+          </div>
+          <div class="account-desc">
+            Committee Only: Restricted exclusively to committee review records and credit memos.
+          </div>
+          <div class="account-email">priscilla.nguyen@trinitycommercial.example</div>
+          <button type="button" class="button ghost account-btn" data-auth-card="priscilla.nguyen">
+            <span>🔐</span> Unlock Workstation
+          </button>
+        </article>
+
+        <!-- 5. Closing & Funding -->
+        <article class="account-card card-closing" data-auth-card="tasha.reed">
+          <div class="account-card-top">
+            <span class="account-avatar closing">TR</span>
+            <div>
+              <span class="badge amber">Closing & Funding</span>
+              <h3 class="account-name">Tasha Reed</h3>
+              <p class="account-role">🏁 Closing & Funding</p>
+            </div>
+          </div>
+          <div class="account-desc">
+            Releasing Records Only: Can view closed stage records and click Release Funds (blocked if a fraud hold exists).
+          </div>
+          <div class="account-email">tasha.reed@trinitycommercial.example</div>
+          <button type="button" class="button ghost account-btn" data-auth-card="tasha.reed">
+            <span>🔐</span> Unlock Workstation
+          </button>
+        </article>
+
+        <!-- 6. Fraud Operations -->
+        <article class="account-card card-fraud" data-auth-card="victor.hale">
+          <div class="account-card-top">
+            <span class="account-avatar fraud">VH</span>
+            <div>
+              <span class="badge red">Fraud Operations</span>
+              <h3 class="account-name">Victor Hale</h3>
+              <p class="account-role">🚨 Fraud Operations</p>
+            </div>
+          </div>
+          <div class="account-desc">
+            Fraud & Alerts Intel: Inspects flagged syndicates and monitors alert queues.
+          </div>
+          <div class="account-email">victor.hale@trinitycommercial.example</div>
+          <button type="button" class="button ghost account-btn" data-auth-card="victor.hale">
+            <span>🔐</span> Unlock Workstation
+          </button>
+        </article>
+      </div>
+
+      <!-- Direct Officer Credential Sign-In Section -->
+      <div class="auth-manual-login">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;text-align:left;">
+          <div>
+            <strong style="display:block;font-size:15px;color:var(--ink);">🔑 Direct Officer Terminal Sign-In</strong>
+            <span style="font-size:12px;color:var(--muted);">Select a quick-fill persona chip or enter your institutional credentials:</span>
+          </div>
+          <div class="security-chip-pill">
+            <span>🔒 Strict Auth</span>
+          </div>
+        </div>
+
+        <!-- Quick Fill Persona Chips -->
+        <div class="auth-persona-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+          <button type="button" class="auth-chip" data-fill-email="lauren.kim@trinitycommercial.example" data-person-id="lauren.kim">
+            <span class="chip-avatar admin">LK</span> Lauren Kim (CLO Admin)
+          </button>
+          <button type="button" class="auth-chip" data-fill-email="olivia.chen@trinitycommercial.example" data-person-id="olivia.chen">
+            <span class="chip-avatar intake">OC</span> Olivia Chen (Intake)
+          </button>
+          <button type="button" class="auth-chip" data-fill-email="marcus.lee@trinitycommercial.example" data-person-id="marcus.lee">
+            <span class="chip-avatar credit">ML</span> Marcus Lee (Credit)
+          </button>
+          <button type="button" class="auth-chip" data-fill-email="priscilla.nguyen@trinitycommercial.example" data-person-id="priscilla.nguyen">
+            <span class="chip-avatar committee">PN</span> Priscilla Nguyen (Committee)
+          </button>
+          <button type="button" class="auth-chip" data-fill-email="tasha.reed@trinitycommercial.example" data-person-id="tasha.reed">
+            <span class="chip-avatar closing">TR</span> Tasha Reed (Closing)
+          </button>
+          <button type="button" class="auth-chip" data-fill-email="victor.hale@trinitycommercial.example" data-person-id="victor.hale">
+            <span class="chip-avatar fraud">VH</span> Victor Hale (Fraud)
+          </button>
+        </div>
+
+        <form id="form-manual-login" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center;">
+          <div style="position:relative;flex:1;min-width:280px;">
+            <input id="auth-email-input" type="email" placeholder="Bank email (e.g. lauren.kim@trinitycommercial.example)" style="width:100%;padding:11px 14px 11px 36px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:#f8fafc;" required>
+            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:#94a3b8;">✉️</span>
+          </div>
+          <div style="position:relative;width:240px;">
+            <input id="auth-password-input" type="password" placeholder="Workstation password" style="width:100%;padding:11px 40px 11px 36px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:#f8fafc;" required>
+            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:#94a3b8;">🔑</span>
+            <button type="button" id="btn-toggle-manual-pass" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;color:#64748b;padding:4px;" title="Show/Hide password">👁️</button>
+          </div>
+          <button type="submit" class="button primary" style="padding:11px 22px;font-weight:700;display:flex;align-items:center;gap:6px;">
+            <span>Authorize & Sign In</span> →
+          </button>
+        </form>
       </div>
     </div>
-  </section>
+  </div>
 
-  <section id="consumer-shell" class="consumer-shell hidden">
-    <header class="consumer-header">
-      <div class="auth-brand dark"><span>DP</span><strong>DealPilot</strong><small>Borrower portal</small></div>
-      <div class="consumer-user"><div><strong id="consumer-name">—</strong><span id="consumer-org">—</span></div><button class="button ghost" data-logout>Sign out</button></div>
-    </header>
-    <main class="consumer-main">
-      <section id="consumer-home">
-        <div class="consumer-hero"><div><p class="eyebrow">YOUR BUSINESS FUNDING</p><h1>A clearer path to a decision.</h1><p>Complete one guided application, upload evidence once, and track every next step.</p></div><button id="new-application" class="button primary">Start a new application</button></div>
-        <div id="consumer-applications" class="application-list"></div>
-      </section>
-      <section id="application-wizard" class="wizard hidden">
-        <button class="text-button" id="back-to-applications">← All applications</button>
-        <div class="wizard-heading"><div><p class="eyebrow">SECURE APPLICATION</p><h1 id="wizard-title">Business profile</h1></div><span id="wizard-save-state" class="badge green">Saved</span></div>
-        <div class="wizard-progress" id="wizard-progress"></div>
-        <div class="wizard-layout"><div id="wizard-content" class="wizard-card"></div><aside class="help-card"><span class="control-icon">✓</span><h3>Why we ask</h3><p id="step-help">Structured information lets the bank compare your application to supporting evidence without repeatedly asking for the same details.</p><div class="security-note"><strong>Protected by design</strong><span>Encrypted transport in production · one-way password derivation · checksummed files · complete audit trail</span></div></aside></div>
-        <div class="wizard-actions"><button class="button ghost" id="wizard-back">Back</button><button class="button primary" id="wizard-next">Save and continue</button></div>
-      </section>
-    </main>
-    <div id="consumer-toast" class="toast" role="status" aria-live="polite"></div>
-  </section>
+  <!-- Officer Password Verification Modal -->
+  <div id="officer-password-modal" class="record-modal-backdrop hidden">
+    <div class="record-modal" style="width:480px;">
+      <div class="record-modal-header">
+        <div>
+          <span class="badge green" style="margin-bottom:4px">Workstation Clearance Required</span>
+          <h3 style="margin:0">🔐 Officer Authentication</h3>
+        </div>
+        <button class="button ghost" id="btn-close-pass-modal" style="padding:4px 10px;font-size:14px">✕</button>
+      </div>
+      <form id="form-officer-password" style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+        <input type="hidden" id="pass-modal-person-id">
+        
+        <!-- Officer Badge & Identity -->
+        <div style="display:flex;align-items:center;gap:14px;padding:14px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+          <span id="pass-modal-avatar" class="account-avatar admin">LK</span>
+          <div>
+            <strong id="pass-modal-name" style="display:block;font-size:15px;color:var(--ink);">Lauren Kim</strong>
+            <small id="pass-modal-title" style="color:var(--muted);font-size:12px;">Chief Lending Officer (Admin)</small>
+            <div id="pass-modal-email" style="font-size:11px;font-family:ui-monospace,monospace;color:#64748b;margin-top:2px;">lauren.kim@trinitycommercial.example</div>
+          </div>
+        </div>
 
+        <label style="display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px;">
+          Workstation Password
+          <div style="position:relative;display:flex;align-items:center;">
+            <input id="pass-modal-input" type="password" placeholder="Type password to unlock workstation..." required style="padding:11px 40px 11px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;width:100%;">
+            <button type="button" id="btn-toggle-modal-pass" style="position:absolute;right:10px;background:none;border:none;cursor:pointer;font-size:16px;color:#64748b;padding:4px;" title="Show/Hide password">👁️</button>
+          </div>
+        </label>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:6px;">
+          <button type="button" class="button ghost" id="btn-cancel-pass-modal">Cancel</button>
+          <button type="submit" class="button primary" style="padding:9px 20px;">Unlock & Sign In</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 3. Borrower Customer Dashboard Screen -->
+  <!-- ========================================== -->
+  <div id="borrower-dashboard" class="borrower-shell hidden" style="min-height:100vh;background:#f8fafc;padding:24px 20px;">
+    <div style="max-width:1080px;margin:0 auto;">
+      <!-- Customer Topbar -->
+      <header style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;background:white;padding:16px 24px;border-radius:16px;border:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,0.03);margin-bottom:24px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="brand-mark" style="width:44px;height:44px;font-size:18px;background:linear-gradient(135deg, #059669, #047857);">TCB</div>
+          <div>
+            <strong style="font-size:18px;color:#0f291e;display:block;">Trinity Commercial Bank</strong>
+            <span style="font-size:12px;color:#155d42;font-weight:600;">Borrower Customer Portal • Secure Application Management</span>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;">
+            <span style="font-size:16px;">🏢</span>
+            <div>
+              <strong id="borrower-dash-biz" style="font-size:13px;color:#166534;display:block;">Oakline Auto</strong>
+              <small id="borrower-dash-name" style="color:#15803d;font-size:11px;">David Vance</small>
+            </div>
+          </div>
+
+          <button type="button" id="btn-borrower-logout" class="button ghost" style="color:#ef4444;border-color:#fecaca;padding:8px 14px;font-size:12px;display:flex;align-items:center;gap:6px;">
+            <span>🚪</span> Sign Out
+          </button>
+        </div>
+      </header>
+
+      <!-- Application Status Hero Banner -->
+      <section style="background:white;border-radius:16px;border:1px solid var(--line);padding:24px;box-shadow:0 4px 16px rgba(0,0,0,0.03);margin-bottom:24px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:20px;">
+          <div>
+            <span class="badge blue" style="margin-bottom:6px;">Commercial Underwriting</span>
+            <h2 id="borrower-dash-stage-title" style="margin:0 0 6px;font-size:22px;color:#0f172a;">Stage 1: Application Intake & Document Verification</h2>
+            <p id="borrower-dash-status-desc" style="margin:0;font-size:13px;color:#64748b;">Your commercial loan request is currently being reviewed by Trinity Commercial Underwriting.</p>
+          </div>
+          <div style="display:flex;gap:12px;">
+            <div style="padding:12px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;text-align:right;">
+              <span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;display:block;">Loan Amount</span>
+              <strong id="borrower-dash-amount" style="font-size:20px;color:#059669;">$150,000</strong>
+            </div>
+            <div style="padding:12px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;text-align:right;">
+              <span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;display:block;">Purpose</span>
+              <strong id="borrower-dash-purpose" style="font-size:16px;color:#334155;text-transform:capitalize;">Working Capital</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5-Stage Visual Progress Bar -->
+        <div class="borrower-progress-pipeline" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;">
+          <div class="borrower-step active" id="bstep-1">
+            <span class="step-num">1</span>
+            <div class="step-text"><strong>Intake & Docs</strong><small>Verification</small></div>
+          </div>
+          <div class="borrower-step" id="bstep-2">
+            <span class="step-num">2</span>
+            <div class="step-text"><strong>Credit Underwriting</strong><small>Spreads & Ratios</small></div>
+          </div>
+          <div class="borrower-step" id="bstep-3">
+            <span class="step-num">3</span>
+            <div class="step-text"><strong>Committee Review</strong><small>Deliberation</small></div>
+          </div>
+          <div class="borrower-step" id="bstep-4">
+            <span class="step-num">4</span>
+            <div class="step-text"><strong>Commitment</strong><small>Term Sheet</small></div>
+          </div>
+          <div class="borrower-step" id="bstep-5">
+            <span class="step-num">5</span>
+            <div class="step-text"><strong>Disbursement</strong><small>Closing & Funding</small></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Split Layout: Document Checklist & Direct Upload -->
+      <div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:20px;align-items:start;">
+        <!-- Left: Document Verification Checklist -->
+        <section style="background:white;border-radius:16px;border:1px solid var(--line);padding:24px;box-shadow:0 4px 16px rgba(0,0,0,0.03);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #e2e8f0;">
+            <div>
+              <h3 style="margin:0;font-size:16px;color:#0f172a;">Application Verification Checklist</h3>
+              <p style="margin:2px 0 0;font-size:12px;color:#64748b;">Required documentation for commercial credit decisioning.</p>
+            </div>
+            <span id="borrower-docs-badge" class="badge green">4 of 7 Submitted</span>
+          </div>
+
+          <div id="borrower-checklist-items" style="display:flex;flex-direction:column;gap:10px;">
+            <!-- Dynamically populated checklist -->
+          </div>
+
+          <!-- Submitted Files Table -->
+          <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e2e8f0;">
+            <h4 style="margin:0 0 10px;font-size:13px;color:#334155;text-transform:uppercase;letter-spacing:0.04em;">Received Loan Files</h4>
+            <div style="max-height:180px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;">
+              <table style="width:100%;font-size:12px;">
+                <thead>
+                  <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                    <th style="padding:8px 12px;text-align:left;">Filename</th>
+                    <th style="padding:8px 12px;text-align:left;">Type</th>
+                    <th style="padding:8px 12px;text-align:left;">Arrival Date</th>
+                  </tr>
+                </thead>
+                <tbody id="borrower-files-tbody">
+                  <!-- Dynamically populated files -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Right: Borrower Document Upload Form -->
+        <section style="background:white;border-radius:16px;border:1px solid var(--line);padding:24px;box-shadow:0 4px 16px rgba(0,0,0,0.03);">
+          <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #e2e8f0;">
+            <h3 style="margin:0;font-size:16px;color:#0f172a;">Submit Additional Documents</h3>
+            <p style="margin:2px 0 0;font-size:12px;color:#64748b;">Upload missing financials, statements, or identity files.</p>
+          </div>
+
+          <form id="form-borrower-doc-upload" style="display:flex;flex-direction:column;gap:14px;">
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#1e293b;">
+              Document Type *
+              <select id="borrower-upload-doctype" style="padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:13px;background:white;" required>
+                <option value="auto">🤖 Auto-Detect (Neural Parser)</option>
+                <option value="loan_application">📄 Small Business Loan Application</option>
+                <option value="guarantor_id">🪪 Guarantor Photo ID / Driver License</option>
+                <option value="certificate_of_formation">🏛️ Certificate of Formation</option>
+                <option value="ein_letter">🏢 IRS EIN Letter (CP 575)</option>
+                <option value="bank_statement">🏦 Business Bank Statement</option>
+                <option value="financial_statements">📊 P&L and Balance Sheet</option>
+                <option value="tax_return">📑 Business Tax Return</option>
+                <option value="equipment_quote">🚜 Equipment Invoice / Quotation</option>
+                <option value="other">📎 Other Supporting Document</option>
+              </select>
+            </label>
+
+            <!-- Dropzone -->
+            <div id="borrower-dropzone" style="border:2px dashed #cbd5e1;border-radius:12px;padding:24px 16px;text-align:center;background:#f8fafc;cursor:pointer;transition:all 0.2s;">
+              <input type="file" id="borrower-file-input" accept=".pdf,.csv,.jpg,.jpeg,.png" style="display:none;">
+              <div id="borrower-dropzone-empty">
+                <span style="font-size:28px;display:block;margin-bottom:6px;">📄</span>
+                <strong style="font-size:13px;color:#334155;display:block;">Choose a file or drag & drop</strong>
+                <small style="color:#94a3b8;font-size:11px;">PDF, CSV, JPG, PNG up to 25 MB</small>
+              </div>
+              <div id="borrower-dropzone-selected" class="hidden" style="display:flex;align-items:center;justify-content:space-between;background:white;padding:8px 12px;border-radius:8px;border:1px solid #e2e8f0;">
+                <span id="borrower-selected-name" style="font-size:12px;font-weight:600;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;">file.pdf</span>
+                <button type="button" id="btn-borrower-remove-file" class="button ghost" style="padding:2px 8px;font-size:11px;color:#ef4444;">✕</button>
+              </div>
+            </div>
+
+            <button type="submit" id="btn-borrower-submit-upload" class="button primary" style="padding:11px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;">
+              <span>⚡ Upload Document</span>
+            </button>
+          </form>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 4. DealPilot Authenticated Bank Application Shell -->
+  <!-- ========================================== -->
   <div id="bank-shell" class="app-shell hidden">
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">DP</div>
-        <div><strong>DealPilot</strong><span>Commercial lending</span></div>
+        <div><strong>DealPilot</strong><span>PocketBase Backend</span></div>
       </div>
 
+      <!-- Primary Sidebar Navigation: Exactly what PocketBase has -->
       <nav aria-label="Primary navigation">
-        <button class="nav-item active" data-view="overview"><span>◫</span> Overview</button>
-        <button class="nav-item" data-view="deals"><span>≡</span> Deal queue</button>
-        <button class="nav-item" data-view="inbox"><span>✓</span> Human inbox <b id="nav-inbox-count">0</b></button>
-        <button class="nav-item" data-view="fraud"><span>⌘</span> Fraud network</button>
-        <button class="nav-item" data-view="operations"><span>↗</span> Operations</button>
+        <button class="nav-item active" data-view="tables"><span>🗄️</span> Tables <b id="nav-tables-count">12</b></button>
+        <button class="nav-item" data-view="alerts"><span>⚠️</span> Alerts <b id="nav-alerts-count">0</b></button>
+        <button class="nav-item" data-view="fraud"><span>🚨</span> Fraud Detected <b id="nav-fraud-count">0</b></button>
       </nav>
 
       <div class="sidebar-footer">
-        <label>Signed in role</label>
-        <div id="bank-role-badge" class="role-badge">Administrator</div>
-        <div class="user-chip"><span>DU</span><div><strong id="bank-user-name">Demo User</strong><small id="active-role">Administrator</small></div></div>
-        <button class="sidebar-signout" data-logout>Sign out</button>
+        <label>Logged In Bank Officer</label>
+        <div class="user-chip" id="sidebar-user-chip" style="margin-top:4px;">
+          <span id="sidebar-user-avatar">LK</span>
+          <div>
+            <strong id="sidebar-user-name">Lauren Kim</strong>
+            <small id="sidebar-user-title">Chief Lending Officer (Admin)</small>
+          </div>
+        </div>
+
+        <div class="role-badge" style="background:#133327;color:#a9e1c7;display:flex;align-items:center;gap:6px;justify-content:center;margin-top:12px;padding:6px 10px;border-radius:8px;font-size:11px;">
+          <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;"></span>
+          PocketBase Connected
+        </div>
+
+        <!-- Distinct Sign Out Button -->
+        <button id="btn-logout" class="button ghost" style="width:100%;margin-top:12px;border-color:rgba(255,255,255,0.2);color:#fca5a5;background:rgba(239,68,68,0.12);display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;padding:8px 12px;border-radius:10px;">
+          <span>🚪</span> Sign Out Workstation
+        </button>
       </div>
     </aside>
 
     <main>
       <header class="topbar">
         <div>
-          <p class="eyebrow">SIMULATION CONTROL TOWER</p>
-          <h1 id="page-title">Portfolio overview</h1>
+          <p class="eyebrow">POCKETBASE CONTROL TOWER</p>
+          <h1 id="page-title">PocketBase Tables</h1>
         </div>
         <div class="sim-controls">
           <div class="sim-time"><span>Simulation time</span><strong id="sim-time">—</strong></div>
-          <button class="button ghost" id="gemini-key-btn" title="Configure or update Gemini API Key">🔑 Gemini Key</button>
           <button class="button ghost" id="reset-button">Reset</button>
           <button class="button ghost" data-advance="4h">+4 hours</button>
           <button class="button primary" data-advance="1d">+1 day</button>
@@ -118,82 +605,368 @@
 
       <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-      <section id="overview-view" class="view active">
-        <div class="metrics" id="metrics"></div>
-
-        <div class="layout-two">
-          <section class="panel priority-panel">
-            <div class="panel-heading">
-              <div><p class="eyebrow">PRIORITIZED WORK</p><h2>Deals needing attention</h2></div>
-              <button class="text-button" data-switch="deals">View all deals →</button>
+      <!-- 1. PocketBase Tables View -->
+      <section id="tables-view" class="view active">
+        <!-- Modern Executive Officer Command Banner -->
+        <div id="dept-access-banner" class="executive-banner">
+          <div class="executive-banner-left">
+            <div class="officer-beacon">
+              <span class="beacon-pulse"></span>
+              <span class="beacon-dot"></span>
             </div>
-            <div id="priority-list" class="priority-list empty-state">Advance the clock to receive documents.</div>
-          </section>
-
-          <section class="panel readiness-panel">
-            <div class="panel-heading"><div><p class="eyebrow">CLOSING CONTROL</p><h2>Portfolio readiness</h2></div></div>
-            <div id="readiness-chart" class="readiness-chart"></div>
-            <div class="legend"><span><i class="dot green"></i>Ready / closed</span><span><i class="dot amber"></i>Waiting</span><span><i class="dot red"></i>Held / blocked</span></div>
-          </section>
+            <div class="officer-info">
+              <div class="officer-identity">
+                <strong id="dept-banner-title">Viewing as 👑 Chief Lending Officer (Admin)</strong>
+                <span id="dept-banner-badge" class="badge green">Full Clearance</span>
+              </div>
+              <p id="dept-banner-desc">Full access to all 12 database collections, credit spread reviews, and funding disbursement authorization.</p>
+            </div>
+          </div>
+          <div class="executive-banner-right">
+            <button class="button primary" id="btn-open-upload-modal" style="background:linear-gradient(135deg, #10b981, #059669);border:none;box-shadow:0 4px 14px rgba(16,185,129,0.25);font-size:12px;padding:6px 14px;display:flex;align-items:center;gap:6px;font-weight:700;">
+              <span>📤</span> Upload Document
+            </button>
+            <div class="stat-mini-pill">
+              <span class="stat-dot green"></span>
+              <span>PocketBase Synced</span>
+            </div>
+            <div class="stat-mini-pill">
+              <span class="stat-dot blue"></span>
+              <span id="active-deals-count-chip">5 Active Deals</span>
+            </div>
+            <a href="http://hackutd-pocketbase-f19aa9-178-156-193-138.sslip.io/_/" target="_blank" class="button ghost" style="text-decoration:none;font-size:12px;padding:6px 12px;">
+              ↗ PocketBase Admin
+            </a>
+            <button class="button icon" id="refresh-tables-btn" aria-label="Refresh Tables" style="width:34px;height:34px;">↻</button>
+          </div>
         </div>
 
-        <section class="panel">
-          <div class="panel-heading">
-            <div><p class="eyebrow">LIVE PIPELINE</p><h2>Stage distribution</h2></div>
-            <span class="muted" id="pipeline-caption">No active deals</span>
-          </div>
-          <div id="pipeline" class="pipeline"></div>
-        </section>
-      </section>
+        <!-- Table Category & Collection Selection -->
+        <div class="tables-category-bar" id="tables-pills"></div>
 
-      <section id="deals-view" class="view">
+        <!-- Selected Table Card -->
         <section class="panel table-panel">
-          <div class="panel-heading">
-            <div><p class="eyebrow">DEAL QUEUE</p><h2>All applications</h2></div>
-            <div class="table-tools"><input id="deal-search" type="search" placeholder="Search borrowers"><button class="button ghost" id="export-button">Export JSON</button></div>
+          <div class="panel-heading" style="flex-wrap:wrap;gap:12px;">
+            <div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span id="active-table-icon" style="font-size:24px;display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#f0fdf4;border:1px solid #d1fae5;">📋</span>
+                <div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <h2 id="active-table-title" style="margin:0;font-size:20px;text-transform:capitalize;">intake</h2>
+                    <span id="active-table-badge" class="badge blue">Stage 1</span>
+                    <span id="active-table-count" class="badge green">0 records</span>
+                  </div>
+                  <p id="active-table-desc" class="muted" style="margin:2px 0 0;font-size:12px;">Initial deal intake queue.</p>
+                </div>
+              </div>
+            </div>
+            <div class="table-tools" style="display:flex;gap:10px;align-items:center;">
+              <div class="modern-search-box">
+                <span>🔍</span>
+                <input id="table-search" type="search" placeholder="Search rows in table...">
+              </div>
+              <button class="button ghost" id="btn-open-upload-modal-tools" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                <span>📤</span> Upload Document
+              </button>
+              <button class="button ghost" id="export-table-btn">Export JSON</button>
+            </div>
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Borrower</th><th>Request</th><th>Stage</th><th>Operational state</th><th>Readiness</th><th>Next action</th></tr></thead>
-              <tbody id="deal-table"></tbody>
+          <div class="table-wrap" style="overflow-x:auto;max-height:650px;">
+            <table id="dynamic-records-table">
+              <thead id="dynamic-table-head"></thead>
+              <tbody id="dynamic-table-body"></tbody>
             </table>
           </div>
         </section>
       </section>
 
-      <section id="inbox-view" class="view">
-        <div class="view-intro"><div><p class="eyebrow">HUMAN-IN-THE-LOOP</p><h2>Decision inbox</h2><p>Consequential decisions stay with authorized employees.</p></div></div>
-        <div id="inbox-list" class="request-grid"></div>
-      </section>
-
-      <section id="fraud-view" class="view">
-        <div class="view-intro" style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap">
-          <div><p class="eyebrow">DEAL DNA · AI/ML INVESTIGATION</p><h2>Portfolio fraud network</h2><p>Repeated relationships across current and historical deals.</p></div>
-          <div style="display:flex;gap:10px;align-items:center">
-            <button class="button primary" id="btn-run-ai-ring" type="button" style="background:linear-gradient(135deg, #1e3a8a, #4338ca);border:none;box-shadow:0 4px 12px rgba(67,56,202,0.25)">
-              <span>✨</span> Run Gemini AI Investigation
-            </button>
+      <!-- 2. Alerts View -->
+      <section id="alerts-view" class="view">
+        <div class="view-intro" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;">
+          <div>
+            <p class="eyebrow">SLA TIMERS & ESCALATION LOGS</p>
+            <h2>Alerts</h2>
+            <p>SLA breaches, managerial escalations, and automated fraud alerts from the PocketBase <code>alerts</code> collection.</p>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <button class="button ghost" id="btn-export-alerts">Export Alerts</button>
+            <button class="button icon" id="refresh-alerts-btn" aria-label="Refresh Alerts">↻</button>
           </div>
         </div>
-        <div id="ai-ring-panel" class="panel hidden" style="margin-bottom:20px;border-left:4px solid #4338ca;padding:24px"></div>
-        <div class="layout-fraud">
-          <section class="panel network-panel"><div id="network" class="network"></div></section>
-          <section class="panel"><div class="panel-heading"><div><p class="eyebrow">EVIDENCE</p><h2>Flagged clusters</h2></div></div><div id="fraud-list"></div></section>
+
+        <!-- Quick Summary Metrics -->
+        <div class="metrics" style="margin-bottom:20px;grid-template-columns:repeat(4,1fr);">
+          <article class="metric">
+            <div class="metric-header"><span>Total Alerts</span><i class="metric-icon">⚠️</i></div>
+            <strong id="alerts-metric-total">0</strong><small>across portfolio</small>
+          </article>
+          <article class="metric">
+            <div class="metric-header"><span>SLA Warnings</span><i class="metric-icon">⏱️</i></div>
+            <strong id="alerts-metric-sla">0</strong><small>100% SLA breaches</small>
+          </article>
+          <article class="metric">
+            <div class="metric-header"><span>Escalations</span><i class="metric-icon">↗</i></div>
+            <strong id="alerts-metric-escalations">0</strong><small>150% / 200% tier escalations</small>
+          </article>
+          <article class="metric">
+            <div class="metric-header"><span>Fraud Alerts</span><i class="metric-icon">🚨</i></div>
+            <strong id="alerts-metric-fraud">0</strong><small>coordinated fraud alerts</small>
+          </article>
         </div>
+
+        <section class="panel table-panel">
+          <div class="panel-heading" style="flex-wrap:wrap;gap:12px;">
+            <div>
+              <h2 style="margin:0;">Active Alerts Ledger</h2>
+              <p class="muted" style="margin:4px 0 0;font-size:12px;">PocketBase collection <code>alerts</code></p>
+            </div>
+            <div class="table-tools" style="display:flex;gap:10px;align-items:center;">
+              <input id="alerts-search" type="search" placeholder="Filter alerts by borrower, RM, recipient..." style="width:280px;">
+            </div>
+          </div>
+          <div class="table-wrap" style="overflow-x:auto;max-height:650px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Deal Folder</th>
+                  <th>Stage</th>
+                  <th>Severity</th>
+                  <th>Recipient</th>
+                  <th>Alert Message</th>
+                </tr>
+              </thead>
+              <tbody id="alerts-table-body">
+                <tr><td colspan="6" class="empty-state">Loading alerts from PocketBase...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </section>
 
-      <section id="operations-view" class="view">
-        <div class="view-intro"><div><p class="eyebrow">RESILIENCE</p><h2>Operations and controls</h2><p>Safe behavior during delays, missing evidence, and service failure.</p></div></div>
-        <div id="operations-grid" class="operations-grid"></div>
+      <!-- 3. Fraud Detected View -->
+      <section id="fraud-view" class="view">
+        <div class="view-intro" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;">
+          <div>
+            <p class="eyebrow">COORDINATED BUST-OUT SYNDICATE PROTECTION</p>
+            <h2>Fraud Detected</h2>
+            <p>Active security holds and forensic syndicate intelligence from the PocketBase <code>fraud_detected</code> collection.</p>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <button class="button primary" id="btn-run-fraud-agent" style="background:linear-gradient(135deg, #b91c1c, #dc2626);border:none;box-shadow:0 4px 14px rgba(220,38,38,0.3);">
+              <span>⚡</span> Run Fraud Detection Agent
+            </button>
+            <button class="button ghost" id="btn-open-flag-modal">
+              <span>+</span> Manually Flag Deal
+            </button>
+            <button class="button icon" id="refresh-fraud-btn" aria-label="Refresh Fraud">↻</button>
+          </div>
+        </div>
+
+        <!-- Fraud Stat Banner -->
+        <div class="panel" style="background:#fef2f2;border-left:4px solid var(--red);margin-bottom:20px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;">
+          <div>
+            <strong style="color:#991b1b;font-size:14px;display:block;margin-bottom:4px">🛡️ Automated Fraud Detection Agent Policy</strong>
+            <p style="margin:0;font-size:12px;color:#7f1d1d;line-height:1.5;">
+              Whenever the agent discovers customer fraud (shared remit accounts, DL identity series, captive vendors, or statement tampering),
+              it records the flag into <code>fraud_detected</code>, releases immediate warnings into <code>alerts</code>, and freezes capital disbursement in Closed stage.
+            </p>
+          </div>
+          <div style="display:flex;gap:12px;">
+            <div style="padding:10px 16px;background:white;border-radius:10px;border:1px solid #fecaca;text-align:center;">
+              <span style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Flagged Deals</span>
+              <strong id="fraud-stat-count" style="display:block;font-size:20px;color:var(--red);">0</strong>
+            </div>
+            <div style="padding:10px 16px;background:white;border-radius:10px;border:1px solid #fecaca;text-align:center;">
+              <span style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Funding Held</span>
+              <strong id="fraud-stat-held" style="display:block;font-size:20px;color:#991b1b;">0</strong>
+            </div>
+          </div>
+        </div>
+
+        <section class="panel table-panel">
+          <div class="panel-heading" style="flex-wrap:wrap;gap:12px;">
+            <div>
+              <h2 style="margin:0;">Flagged Fraud Registry</h2>
+              <p class="muted" style="margin:4px 0 0;font-size:12px;">PocketBase collection <code>fraud_detected</code></p>
+            </div>
+            <div class="table-tools" style="display:flex;gap:10px;align-items:center;">
+              <input id="fraud-search" type="search" placeholder="Search flagged deals or reasons..." style="width:280px;">
+            </div>
+          </div>
+          <div class="table-wrap" style="overflow-x:auto;max-height:650px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Deal Folder</th>
+                  <th>Stage Detected</th>
+                  <th>Flagged At</th>
+                  <th>Evidentiary Reason</th>
+                  <th>Disbursement Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="fraud-table-body">
+                <tr><td colspan="6" class="empty-state">Loading fraud flags from PocketBase...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </section>
     </main>
   </div>
 
+  <!-- Deal Drawer -->
   <div id="deal-drawer" class="drawer" aria-hidden="true">
     <button class="drawer-backdrop" data-close-drawer aria-label="Close deal details"></button>
     <article class="drawer-content" aria-label="Deal details">
       <div id="deal-detail"></div>
     </article>
+  </div>
+
+  <!-- PocketBase Record Inspector Modal -->
+  <div id="record-modal-root" class="record-modal-backdrop hidden"></div>
+
+  <!-- Manual Fraud Flag Modal -->
+  <div id="flag-deal-modal" class="record-modal-backdrop hidden">
+    <div class="record-modal" style="width:520px;">
+      <div class="record-modal-header">
+        <h3 style="margin:0">🚨 Flag Deal for Fraud</h3>
+        <button class="button ghost" id="btn-close-flag-modal" style="padding:4px 10px;font-size:14px">✕</button>
+      </div>
+      <form id="form-flag-deal" style="padding:24px;display:flex;flex-direction:column;gap:14px;">
+        <label>
+          Deal Folder Name
+          <input id="flag-deal-folder" placeholder="e.g. Ridgeway Freight Logistics" required>
+        </label>
+        <label>
+          Evidentiary Reason
+          <textarea id="flag-deal-reason" placeholder="e.g. Shared remittance account 8831 and captive vendor Apex Industrial Supply" required style="min-height:80px;"></textarea>
+        </label>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;">
+          <button type="button" class="button ghost" id="btn-cancel-flag-modal">Cancel</button>
+          <button type="submit" class="button danger">Confirm Fraud Flag</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Loan Document Upload & AI Fact Extraction Modal -->
+  <div id="upload-doc-modal" class="record-modal-backdrop hidden">
+    <div class="record-modal upload-modal-container" style="width:620px;max-width:96vw;">
+      <div class="record-modal-header" style="border-bottom:1px solid #e2e8f0;padding:18px 24px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:26px;display:grid;place-items:center;width:44px;height:44px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;">📤</span>
+          <div>
+            <h3 style="margin:0;font-size:18px;color:#0f172a;">Commercial Loan Document Ingestion</h3>
+            <p style="margin:2px 0 0;font-size:12px;color:#64748b;">Upload loan files to PocketBase with automated neural fact extraction.</p>
+          </div>
+        </div>
+        <button class="button ghost" id="btn-close-upload-modal" style="padding:4px 10px;font-size:14px">✕</button>
+      </div>
+
+      <div class="upload-modal-body" style="padding:24px;">
+        <!-- Upload Form -->
+        <form id="form-upload-document" style="display:flex;flex-direction:column;gap:16px;">
+          <!-- Deal Folder Field -->
+          <div>
+            <label style="display:block;font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;">
+              Target Deal Folder <span style="color:#ef4444;">*</span>
+            </label>
+            <div style="display:flex;gap:8px;">
+              <select id="upload-deal-folder-select" style="flex:1;padding:10px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:white;" required>
+                <option value="" disabled selected>Loading deal folders...</option>
+                <option value="__new__">+ Create New Deal Folder...</option>
+              </select>
+            </div>
+            <!-- Custom Deal Folder input if __new__ is selected -->
+            <input id="upload-custom-folder-input" class="hidden" type="text" placeholder="Type new deal folder name (e.g. Metroplex Dental Group)" style="margin-top:8px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;width:100%;">
+          </div>
+
+          <!-- Document Type Classification -->
+          <div>
+            <label style="display:block;font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;">
+              Document Classification
+            </label>
+            <select id="upload-doc-type-select" style="width:100%;padding:10px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:white;">
+              <option value="auto">🤖 Auto-Detect with Local AI Model</option>
+              <option value="loan_application">📄 Small Business Loan Application</option>
+              <option value="guarantor_id">🪪 Guarantor ID / Driver License</option>
+              <option value="certificate_of_formation">🏛️ Certificate of Formation / Filing</option>
+              <option value="ein_letter">🏢 IRS CP 575 EIN Confirmation Letter</option>
+              <option value="bank_statement">🏦 Business Checking Bank Statement</option>
+              <option value="financial_statements">📊 Profit & Loss / Balance Sheet</option>
+              <option value="tax_return">📑 Business Tax Return (Form 1120 / 1065)</option>
+              <option value="equipment_quote">🚜 Equipment Invoice / Quotation</option>
+              <option value="request_letter">✉️ Borrower Request Letter</option>
+              <option value="contract_summary">📋 Contract Summary</option>
+              <option value="other">📎 Other Supporting Document</option>
+            </select>
+          </div>
+
+          <!-- Drag and Drop Zone -->
+          <div>
+            <label style="display:block;font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;">
+              Select File <span style="color:#ef4444;">*</span>
+            </label>
+            <div id="upload-dropzone" class="upload-dropzone" style="border:2px dashed #cbd5e1;border-radius:14px;padding:26px 20px;text-align:center;background:#f8fafc;cursor:pointer;transition:all 0.2s;">
+              <input type="file" id="upload-file-input" accept=".pdf,.csv,.jpg,.jpeg,.png" style="display:none;">
+              <div id="dropzone-empty-state">
+                <span style="font-size:36px;display:block;margin-bottom:8px;">📁</span>
+                <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#334155;">Drag & drop loan file here, or <span style="color:#10b981;text-decoration:underline;">browse files</span></p>
+                <p style="margin:0;font-size:12px;color:#94a3b8;">Supports PDF, CSV, JPG, PNG (Max 25 MB)</p>
+              </div>
+              <div id="dropzone-file-state" class="hidden" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:white;border-radius:10px;border:1px solid #e2e8f0;">
+                <div style="display:flex;align-items:center;gap:10px;text-align:left;">
+                  <span id="upload-file-icon" style="font-size:24px;">📄</span>
+                  <div>
+                    <strong id="upload-file-name" style="font-size:13px;color:#1e293b;display:block;">filename.pdf</strong>
+                    <span id="upload-file-size" style="font-size:11px;color:#64748b;">128 KB</span>
+                  </div>
+                </div>
+                <button type="button" id="btn-remove-file" class="button ghost" style="padding:4px 8px;font-size:12px;color:#ef4444;">Remove</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Form Actions -->
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:6px;">
+            <button type="button" class="button ghost" id="btn-cancel-upload">Cancel</button>
+            <button type="submit" class="button primary" id="btn-submit-upload" style="padding:9px 20px;display:flex;align-items:center;gap:8px;">
+              <span>⚡</span> Upload & Extract Facts
+            </button>
+          </div>
+        </form>
+
+        <!-- Extraction Results View (shown after upload completes) -->
+        <div id="upload-result-container" class="hidden" style="margin-top:16px;">
+          <div style="padding:16px;background:#f0fdf4;border-radius:12px;border:1px solid #bbf7d0;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+              <span style="font-size:20px;">✅</span>
+              <strong style="color:#166534;font-size:15px;">Document Successfully Ingested</strong>
+            </div>
+            <p id="upload-result-meta" style="margin:0;font-size:12px;color:#15803d;line-height:1.5;">
+              Saved to PocketBase <code>files</code> collection and processed with local parser.
+            </p>
+          </div>
+
+          <div style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;padding:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <strong style="font-size:13px;color:#334155;text-transform:uppercase;letter-spacing:0.04em;">Extracted Neural Facts</strong>
+              <span id="upload-result-type-badge" class="badge green">loan_application</span>
+            </div>
+            <div id="upload-facts-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-height:220px;overflow-y:auto;padding-right:4px;">
+              <!-- Populated dynamically with extracted facts -->
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+            <button type="button" class="button ghost" id="btn-upload-another">Upload Another Document</button>
+            <button type="button" class="button primary" id="btn-done-upload">View in Tables</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="/app.js" defer></script>

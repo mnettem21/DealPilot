@@ -4,4 +4,8 @@ data/
 output/submission.json
 output/extract_cache/
 .DS_Store
+.env
+.gemini_key
+*Challenge*.pdf
+*challenge*.pdf
 
