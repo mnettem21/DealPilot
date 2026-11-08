@@ -3,4 +3,7 @@ __pycache__/
 data/
 output/submission.json
 .DS_Store
+.gemini_key
+*Challenge*.pdf
+*challenge*.pdf
 

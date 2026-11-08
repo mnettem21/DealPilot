@@ -388,6 +388,41 @@ def feature_map(conn, identifier):
     return {key: normalize(value) for key, value in features.items() if value}
 
 
+FEATURE_WEIGHTS = {
+    # High-Entropy Financial Rails & Extraction Channels (Direct theft vectors)
+    "vendor_remit_acct_last4": 4.5,
+    "transfer_account": 4.0,
+    "vendor_routing": 3.0,
+    "bank_account": 3.0,
+    # Synthetic Identity and Provenance Signatures
+    "dl_prefix": 3.5,
+    "pdf_producer": 2.5,
+    # Behavioral Structuring
+    "delegated_threshold_cluster": 2.5,
+    # Common Service Providers (Low entropy, Texas businesses legitimately share these)
+    "preparer_phone": 2.0,
+    "equipment_vendor": 1.5,
+    "preparer": 1.5,
+    "registered_agent_address": 1.0,
+    "registered_agent": 1.0,
+}
+
+FEATURE_FAMILIES = {
+    "vendor_remit_acct_last4": "financial",
+    "transfer_account": "financial",
+    "vendor_routing": "financial",
+    "bank_account": "financial",
+    "dl_prefix": "identity",
+    "pdf_producer": "provenance",
+    "delegated_threshold_cluster": "structuring",
+    "preparer_phone": "service_provider",
+    "preparer": "service_provider",
+    "equipment_vendor": "service_provider",
+    "registered_agent_address": "service_provider",
+    "registered_agent": "service_provider",
+}
+
+
 def recompute_fraud(conn):
     identifiers = [row["id"] for row in conn.execute("SELECT id FROM deals")]
     maps = {identifier: feature_map(conn, identifier) for identifier in identifiers}
@@ -399,14 +434,13 @@ def recompute_fraud(conn):
             if other == identifier:
                 continue
             shared = sorted(key for key, value in maps[identifier].items() if value and maps[other].get(key) == value)
-            strong = [key for key in shared if key not in {"delegated_threshold_cluster", "pdf_producer"}]
-            # Common service providers are weak evidence in commercial lending:
-            # legitimate borrowers often share a CPA and registered agent. Only
-            # create a network edge when several independent feature families
-            # agree (identity, vendor/payment, document provenance, transfers).
-            if len(strong) >= 5 or len(shared) >= 7:
+            weight = sum(FEATURE_WEIGHTS.get(k, 1.0) for k in shared)
+            families = {FEATURE_FAMILIES.get(k) for k in shared if FEATURE_FAMILIES.get(k)}
+            # Weighted link criterion: strong financial/identity anchors create an edge
+            # with fewer features, while service provider overlaps alone do not cross threshold.
+            if (weight >= 7.0 and len(families) >= 2) or len(shared) >= 6:
                 folder = conn.execute("SELECT folder FROM deals WHERE id=?", (other,)).fetchone()["folder"]
-                links.append({"deal": folder, "shared": shared})
+                links.append({"deal": folder, "shared": shared, "weight": weight})
                 evidence.update(shared)
 
         for row in history:
@@ -421,19 +455,40 @@ def recompute_fraud(conn):
                 "dl_prefix": normalize(row.get("guarantor_dl_number", "")[:6]),
             }
             shared = sorted(key for key, value in maps[identifier].items() if value and historical.get(key) == value)
-            if len(shared) >= 5:
-                links.append({"deal": row["deal_id"], "shared": shared, "historical": True})
+            weight = sum(FEATURE_WEIGHTS.get(k, 1.0) for k in shared)
+            families = {FEATURE_FAMILIES.get(k) for k in shared if FEATURE_FAMILIES.get(k)}
+            if (weight >= 10.0 and len(families) >= 3) or len(shared) >= 5:
+                links.append({"deal": row["deal_id"], "shared": shared, "historical": True, "weight": weight})
                 evidence.update(shared)
 
-        flagged = bool(links and len(evidence) >= 4)
+        total_weight = sum(FEATURE_WEIGHTS.get(k, 1.0) for k in evidence)
+        evidence_families = {FEATURE_FAMILIES.get(k) for k in evidence if FEATURE_FAMILIES.get(k)}
+        flagged = bool(links and total_weight >= 7.0 and len(evidence_families) >= 2)
         amount = db.decode_row(conn.execute("SELECT * FROM deals WHERE id=?", (identifier,)).fetchone())["extracted"].get("amount_requested")
         reasons = [humanize_feature(value) for value in sorted(evidence)]
         if amount and 240000 <= amount < 250000 and links:
             reasons.append("Loan amount clusters immediately below the $250,000 committee threshold")
+
+        deal_row = conn.execute("SELECT stage, fraud_json FROM deals WHERE id=?", (identifier,)).fetchone()
+        existing_fraud = json.loads(deal_row["fraud_json"] or "{}") if deal_row else {}
+        current_stage = deal_row["stage"] if deal_row else "Intake"
+
+        if existing_fraud.get("flagged"):
+            flagged_at = existing_fraud.get("flagged_at") or sim_now(conn)
+            stage_at_flag = existing_fraud.get("stage_at_flag") or current_stage
+        elif flagged:
+            flagged_at = sim_now(conn)
+            stage_at_flag = current_stage
+        else:
+            flagged_at = None
+            stage_at_flag = None
+
         fraud = {
             "flagged": flagged,
+            "flagged_at": flagged_at,
+            "stage_at_flag": stage_at_flag,
             "category": "organized_fraud_ring" if flagged else None,
-            "confidence": min(0.99, round(0.45 + len(evidence) * 0.07, 2)) if flagged else 0,
+            "confidence": min(0.99, round(0.50 + total_weight * 0.02, 2)) if flagged else 0,
             "held": active_hold(conn, identifier),
             "reason": "; ".join(reasons) if flagged else None,
             "evidence": reasons,
@@ -930,8 +985,8 @@ def export_submission(team="DealPilot", dataset="sample"):
             ],
             "fraud": {
                 "flagged": full["fraud"].get("flagged", False),
-                "flagged_at": next((event["at"] for event in reversed(full["events"]) if event["event_type"] == "FraudFindingUpdated"), None),
-                "stage_at_flag": full["stage"] if full["fraud"].get("flagged") else None,
+                "flagged_at": full["fraud"].get("flagged_at") or next((event["at"] for event in full["events"] if event["event_type"] == "FraudFindingUpdated"), None),
+                "stage_at_flag": full["fraud"].get("stage_at_flag") or (full["stage"] if full["fraud"].get("flagged") else None),
                 "held": full["fraud"].get("held", False),
                 "reason": full["fraud"].get("reason"),
                 "linked_deals": full["fraud"].get("linked_deals", []),
