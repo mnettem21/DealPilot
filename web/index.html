@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="DealPilot commercial lending control tower">
+  <title>DealPilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <section id="auth-screen" class="auth-screen">
+    <div class="auth-story">
+      <div class="auth-brand"><span>DP</span><strong>DealPilot</strong></div>
+      <p class="eyebrow">ONE SECURE LENDING WORKSPACE</p>
+      <h1>From application to a safe close.</h1>
+      <p>Borrowers submit one structured package. Bank teams receive verified evidence, prioritized work, explainable scores, and fraud-network intelligence.</p>
+      <div class="auth-proof">
+        <div><strong>Step-by-step</strong><span>Guided borrower intake</span></div>
+        <div><strong>Explainable</strong><span>Every score shows its reasons</span></div>
+        <div><strong>Human-controlled</strong><span>No AI-only funding decisions</span></div>
+      </div>
+    </div>
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-auth-tab="login">Sign in</button>
+        <button class="auth-tab" data-auth-tab="signup">Create borrower account</button>
+      </div>
+      <form id="login-form" class="auth-form">
+        <div><p class="eyebrow">BORROWER PORTAL</p><h2>Welcome back</h2><p>Continue your business loan application.</p></div>
+        <label>Email<input name="email" type="email" autocomplete="email" required></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+        <button class="button primary wide" type="submit">Sign in securely</button>
+      </form>
+      <form id="signup-form" class="auth-form hidden">
+        <div><p class="eyebrow">NEW BORROWER</p><h2>Create your secure workspace</h2><p>Your password is salted and one-way derived; it is never displayed or stored in plain text.</p></div>
+        <div class="form-grid two"><label>Your name<input name="display_name" autocomplete="name" required></label><label>Business name<input name="organization" autocomplete="organization" required></label></div>
+        <label>Email<input name="email" type="email" autocomplete="email" required></label>
+        <label>Password<input name="password" type="password" minlength="12" autocomplete="new-password" placeholder="12+ characters, uppercase, lowercase, number" required></label>
+        <button class="button primary wide" type="submit">Create borrower account</button>
+      </form>
+      <form id="bank-login-form" class="auth-form hidden">
+        <div><p class="eyebrow">AUTHORIZED BANK PERSONNEL</p><h2>Bank workspace sign in</h2><p>Use your Trinity Commercial Bank employee credentials. Borrower accounts cannot enter this workspace.</p></div>
+        <label>Employee email<input name="email" type="email" autocomplete="username" required></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+        <button class="button primary wide" type="submit">Sign in to bank workspace</button>
+        <button class="text-button" type="button" data-auth-tab="login">← Back to borrower sign in</button>
+      </form>
+      <p id="auth-error" class="form-error" role="alert"></p>
+      <div id="bank-entry" class="bank-demo">
+        <div><strong>Are you a bank employee?</strong><span>The bank workspace requires a separate authorized employee account.</span></div>
+        <button id="bank-login-button" class="button ghost wide" style="margin-top:13px">Open bank sign-in</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="consumer-shell" class="consumer-shell hidden">
+    <header class="consumer-header">
+      <div class="auth-brand dark"><span>DP</span><strong>DealPilot</strong><small>Borrower portal</small></div>
+      <div class="consumer-user"><div><strong id="consumer-name">—</strong><span id="consumer-org">—</span></div><button class="button ghost" data-logout>Sign out</button></div>
+    </header>
+    <main class="consumer-main">
+      <section id="consumer-home">
+        <div class="consumer-hero"><div><p class="eyebrow">YOUR BUSINESS FUNDING</p><h1>A clearer path to a decision.</h1><p>Complete one guided application, upload evidence once, and track every next step.</p></div><button id="new-application" class="button primary">Start a new application</button></div>
+        <div id="consumer-applications" class="application-list"></div>
+      </section>
+      <section id="application-wizard" class="wizard hidden">
+        <button class="text-button" id="back-to-applications">← All applications</button>
+        <div class="wizard-heading"><div><p class="eyebrow">SECURE APPLICATION</p><h1 id="wizard-title">Business profile</h1></div><span id="wizard-save-state" class="badge green">Saved</span></div>
+        <div class="wizard-progress" id="wizard-progress"></div>
+        <div class="wizard-layout"><div id="wizard-content" class="wizard-card"></div><aside class="help-card"><span class="control-icon">✓</span><h3>Why we ask</h3><p id="step-help">Structured information lets the bank compare your application to supporting evidence without repeatedly asking for the same details.</p><div class="security-note"><strong>Protected by design</strong><span>Encrypted transport in production · one-way password derivation · checksummed files · complete audit trail</span></div></aside></div>
+        <div class="wizard-actions"><button class="button ghost" id="wizard-back">Back</button><button class="button primary" id="wizard-next">Save and continue</button></div>
+      </section>
+    </main>
+    <div id="consumer-toast" class="toast" role="status" aria-live="polite"></div>
+  </section>
+
+  <div id="bank-shell" class="app-shell hidden">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">DP</div>
+        <div><strong>DealPilot</strong><span>Commercial lending</span></div>
+      </div>
+
+      <nav aria-label="Primary navigation">
+        <button class="nav-item active" data-view="overview"><span>◫</span> Overview</button>
+        <button class="nav-item" data-view="deals"><span>≡</span> Deal queue</button>
+        <button class="nav-item" data-view="inbox"><span>✓</span> Human inbox <b id="nav-inbox-count">0</b></button>
+        <button class="nav-item" data-view="fraud"><span>⌘</span> Fraud network</button>
+        <button class="nav-item" data-view="operations"><span>↗</span> Operations</button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <label>Signed in role</label>
+        <div id="bank-role-badge" class="role-badge">Administrator</div>
+        <div class="user-chip"><span>DU</span><div><strong id="bank-user-name">Demo User</strong><small id="active-role">Administrator</small></div></div>
+        <button class="sidebar-signout" data-logout>Sign out</button>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">SIMULATION CONTROL TOWER</p>
+          <h1 id="page-title">Portfolio overview</h1>
+        </div>
+        <div class="sim-controls">
+          <div class="sim-time"><span>Simulation time</span><strong id="sim-time">—</strong></div>
+          <button class="button ghost" id="reset-button">Reset</button>
+          <button class="button ghost" data-advance="4h">+4 hours</button>
+          <button class="button primary" data-advance="1d">+1 day</button>
+          <button class="button icon" id="refresh-button" aria-label="Refresh">↻</button>
+        </div>
+      </header>
+
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+      <section id="overview-view" class="view active">
+        <div class="metrics" id="metrics"></div>
+
+        <div class="layout-two">
+          <section class="panel priority-panel">
+            <div class="panel-heading">
+              <div><p class="eyebrow">PRIORITIZED WORK</p><h2>Deals needing attention</h2></div>
+              <button class="text-button" data-switch="deals">View all deals →</button>
+            </div>
+            <div id="priority-list" class="priority-list empty-state">Advance the clock to receive documents.</div>
+          </section>
+
+          <section class="panel readiness-panel">
+            <div class="panel-heading"><div><p class="eyebrow">CLOSING CONTROL</p><h2>Portfolio readiness</h2></div></div>
+            <div id="readiness-chart" class="readiness-chart"></div>
+            <div class="legend"><span><i class="dot green"></i>Ready / closed</span><span><i class="dot amber"></i>Waiting</span><span><i class="dot red"></i>Held / blocked</span></div>
+          </section>
+        </div>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">LIVE PIPELINE</p><h2>Stage distribution</h2></div>
+            <span class="muted" id="pipeline-caption">No active deals</span>
+          </div>
+          <div id="pipeline" class="pipeline"></div>
+        </section>
+      </section>
+
+      <section id="deals-view" class="view">
+        <section class="panel table-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">DEAL QUEUE</p><h2>All applications</h2></div>
+            <div class="table-tools"><input id="deal-search" type="search" placeholder="Search borrowers"><button class="button ghost" id="export-button">Export JSON</button></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Borrower</th><th>Request</th><th>Stage</th><th>Operational state</th><th>Readiness</th><th>Next action</th></tr></thead>
+              <tbody id="deal-table"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="inbox-view" class="view">
+        <div class="view-intro"><div><p class="eyebrow">HUMAN-IN-THE-LOOP</p><h2>Decision inbox</h2><p>Consequential decisions stay with authorized employees.</p></div></div>
+        <div id="inbox-list" class="request-grid"></div>
+      </section>
+
+      <section id="fraud-view" class="view">
+        <div class="view-intro"><div><p class="eyebrow">DEAL DNA</p><h2>Portfolio fraud network</h2><p>Repeated relationships across current and historical deals.</p></div></div>
+        <div class="layout-fraud">
+          <section class="panel network-panel"><div id="network" class="network"></div></section>
+          <section class="panel"><div class="panel-heading"><div><p class="eyebrow">EVIDENCE</p><h2>Flagged clusters</h2></div></div><div id="fraud-list"></div></section>
+        </div>
+      </section>
+
+      <section id="operations-view" class="view">
+        <div class="view-intro"><div><p class="eyebrow">RESILIENCE</p><h2>Operations and controls</h2><p>Safe behavior during delays, missing evidence, and service failure.</p></div></div>
+        <div id="operations-grid" class="operations-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="deal-drawer" class="drawer" aria-hidden="true">
+    <button class="drawer-backdrop" data-close-drawer aria-label="Close deal details"></button>
+    <article class="drawer-content" aria-label="Deal details">
+      <div id="deal-detail"></div>
+    </article>
+  </div>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

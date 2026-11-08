@@ -1,0 +1,20 @@
+{
+  "legal_name": "Cedar & Loom Workspace LLC",
+  "dba": "Cedar & Loom Office Interiors",
+  "ein": "12-3456789",
+  "formation_date": "2021-04-12",
+  "business_address": "4100 Fictional Parkway, Suite 220, Plano, TX 75024",
+  "industry": "Commercial furniture manufacturing and installation",
+  "annual_revenue_stated": "1240000",
+  "bank_account": "Mock Prairie Bank / account ending 4412",
+  "amount_requested": "125000",
+  "product": "Equipment Loan",
+  "purpose": "Purchase CNC wood router, delivery van, and installation equipment to expand production capacity.",
+  "term_months": "48",
+  "needed_by": "2026-11-20T15:00",
+  "guarantor_name": "Maya Elise Carter",
+  "guarantor_dob": "1988-06-14",
+  "guarantor_address": "920 Fictional Grove Lane, Plano, TX 75025",
+  "guarantor_dl_number": "45872190",
+  "purpose_category": "equipment"
+}

@@ -1,0 +1,119 @@
+{
+  "pipeline": [
+    "Intake",
+    "Credit",
+    "Committee",
+    "Product",
+    "Committed",
+    "Closed"
+  ],
+  "time": "All SLA timers are wall-clock hours in SIM time (see sim/clock.py). Timer starts when the deal enters the stage.",
+  "stages": {
+    "Intake": {
+      "sla_hours": 8,
+      "owner": "Intake",
+      "required_to_exit": [
+        "loan application (signed)",
+        "government photo ID for each guarantor",
+        "certificate of formation",
+        "IRS EIN letter"
+      ],
+      "checks": [
+        "extract borrower, amount, purpose, product, term, guarantor",
+        "every required doc present and legible",
+        "application facts match supporting documents (name, EIN, amount, guarantor)"
+      ],
+      "human_gate": null
+    },
+    "Credit": {
+      "sla_hours": 48,
+      "owner": "Credit",
+      "required_to_exit": [
+        "bank statements for the 6 most recent full months (all pages)",
+        "financial statements (P&L + balance sheet)",
+        "most recent business tax return \u2014 OR \u2014 IRS extension (Form 7004) if the business is < 2 years old",
+        "known-fraud checks run (rules/known_fraud_checks.md)"
+      ],
+      "human_gate": {
+        "type": "credit_decision",
+        "who": "assigned credit officer (backup if out of office)",
+        "options": [
+          "approve",
+          "decline",
+          "request_info"
+        ]
+      }
+    },
+    "Committee": {
+      "sla_hours": 48,
+      "sla_hours_delegated": 24,
+      "owner": "Committee",
+      "routing": {
+        "delegated_max_amount": 249999.99,
+        "delegated_approver": "priscilla.nguyen",
+        "full_committee_chair": "harold.benson"
+      },
+      "required_to_exit": [
+        "credit memo (system-written summary of what was seen, decided and why)"
+      ],
+      "human_gate": {
+        "type": "committee_approval",
+        "who": "delegated approver or committee chair (by amount)"
+      }
+    },
+    "Product": {
+      "sla_hours": 16,
+      "owner": "Product",
+      "required_to_exit": [
+        "product and pricing chosen and consistent with the request",
+        "equipment loans: vendor quote present; vendor identity and remit-to account verified against known vendors"
+      ],
+      "human_gate": null
+    },
+    "Committed": {
+      "sla_hours": 48,
+      "owner": "Relationship Management",
+      "required_to_exit": [
+        "commitment letter signed by relationship manager and borrower"
+      ],
+      "human_gate": {
+        "type": "commitment_signoff",
+        "who": "deal's relationship manager"
+      }
+    },
+    "Closed": {
+      "sla_hours": 24,
+      "owner": "Closing",
+      "required_to_exit": [
+        "final fraud screen clear",
+        "disbursement account verified (borrower's own account or verified vendor)"
+      ],
+      "human_gate": {
+        "type": "funding_release",
+        "who": "tasha.reed"
+      },
+      "note": "Entering Closed = money goes out."
+    }
+  },
+  "fraud_hold": {
+    "who_decides": "Fraud Operations (victor.hale, backup monica.salas)",
+    "system_role": "DealPilot may flag and REQUEST a hold with evidence; a human places or releases it",
+    "deadline": "a suspicious deal must be held before it enters Closed",
+    "may_happen_at": "any stage"
+  },
+  "stuck_deals": {
+    "alert_at_pct_of_sla": 100,
+    "escalate_at_pct_of_sla": 150,
+    "second_escalation_at_pct_of_sla": 200,
+    "alert_to": "stage owner (and deal RM)",
+    "escalate_to": "owner's escalates_to in contacts/teams.json",
+    "second_escalation_to": "lauren.kim",
+    "alert_must_say": [
+      "whose deal (borrower + RM)",
+      "which stage and for how long",
+      "what it is waiting for",
+      "what would unblock it"
+    ]
+  },
+  "priority": "Respect stated 'funds needed by' dates \u2014 a good deal that misses its date is a failure too."
+}
