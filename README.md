@@ -1,4 +1,4 @@
-# DealPilot — Team Data Pack (HackUTD 2026)
+# underight — Team Data Pack (HackUTD 2026)
 
 Everything here is **made up**. No real people, companies, accounts or IDs. Bank: *Trinity Commercial Bank* (fictional).
 Emails end in `.example` and phone numbers use the reserved 555-01xx range.
