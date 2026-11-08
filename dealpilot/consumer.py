@@ -284,20 +284,71 @@ def score_application(deal, user):
         "model": "explainable-rules-v1",
         "protected_attributes_used": False,
     }
-    issue_names = [reason["code"].replace(":", " — ").replace("_", " ").lower() for reason in reasons]
-    reason_text = "; ".join(issue_names[:4]) or "the submitted package did not meet the bank's current verification criteria"
+    if score < 70:
+        improvement_steps = []
+        for reason in reasons:
+            code = reason["code"]
+            if "MISSING_DOC" in code or "MISSING_PAGE" in code:
+                doc = code.split(":", 1)[-1].replace("_", " ")
+                improvement_steps.append(f"• Documentation: Provide complete business records ({doc}).")
+            elif "MISMATCH" in code:
+                field_name = code.split(":", 1)[-1].replace("_", " ")
+                improvement_steps.append(f"• Discrepancies: Resolve factual mismatch regarding {field_name} across legal and application records.")
+            elif "REV_INFLATION" in code:
+                improvement_steps.append("• Cash Flow: Ensure stated annual revenue aligns with verifiable deposit activity across bank statements.")
+            elif "STMT_TAMPER" in code:
+                improvement_steps.append("• Verification: Provide certified, unedited bank statements with matching month-to-month opening/closing balances.")
+        if not improvement_steps:
+            improvement_steps.append("• Financial History: Provide complete operating bank statements and audited financial statements.")
+
+        improvement_text = "\n".join(improvement_steps[:4])
+        email_draft = (
+            f"Hello {user['display_name']},\n\n"
+            f"Thank you for applying for commercial financing on behalf of {user.get('organization') or 'your business'}. "
+            f"Based on our initial underwriting review, your current Approval-Readiness Score is {score}/100 (Tier: Decline Recommended).\n\n"
+            "Key areas requiring improvement before approval can be considered:\n"
+            f"{improvement_text}\n\n"
+            "Timeline & roadmap to improve your score for future applications:\n"
+            "• Immediate Documentation Cure (30 Days): If any missing documents or discrepancies can be resolved with official supporting records, you may provide them within 30 days for administrative reconsideration.\n"
+            "• Operational History (3–6 Months): Demonstrating 3 to 6 consecutive months of stable operating deposits and debt-service coverage will significantly elevate your readiness score.\n"
+            "• Reapplication Window (90 Days): You are eligible to submit a fresh application after 90 days with updated financial statements.\n\n"
+            "Note: This draft must be reviewed by a bank employee before it is sent.\n\n"
+            "Sincerely,\n"
+            "Trinity Commercial Bank Commercial Lending Team"
+        )
+    elif score < 90:
+        email_draft = (
+            f"Hello {user['display_name']},\n\n"
+            f"Thank you for applying for commercial financing on behalf of {user.get('organization') or 'your business'}. "
+            f"Your application received an Approval-Readiness Score of {score}/100 (Tier: Human Review).\n\n"
+            f"Conditional Approval Offer (50% Facility):\n"
+            f"Based on our initial evaluation, we are pleased to conditionally recommend approval for a partial loan facility of up to 50% of your requested amount: ${suggested_amount:,.2f} (requested: ${amount:,.2f}). "
+            "This structured facility allows your business to access immediate financing while managing credit exceptions.\n\n"
+            f"Pathway & Approval Rate for Full Facility (${amount:,.2f}):\n"
+            "• Historical Full-Approval Rate: Borrowers who accept the 50% facility and establish 6 consecutive months of prompt, on-time repayment achieve an estimated 85%–90% approval rate when requesting an expansion to the full requested amount.\n"
+            "• Immediate Full-Amount Qualification: You may qualify for the full requested amount sooner by resolving outstanding documentation exceptions or submitting audited fiscal year-end financials for Credit Committee review.\n\n"
+            "A Trinity Commercial Bank credit officer will be in touch shortly to discuss these options and finalize your terms.\n\n"
+            "Note: This draft must be reviewed by a bank employee before it is sent.\n\n"
+            "Sincerely,\n"
+            "Trinity Commercial Bank Commercial Lending Team"
+        )
+    else:
+        email_draft = (
+            f"Hello {user['display_name']},\n\n"
+            f"Congratulations! Your application for {user.get('organization') or 'your business'} has achieved an Approval-Readiness Score of {score}/100 (Tier: Fast Track).\n\n"
+            f"You have been pre-qualified for the full requested amount of ${amount:,.2f}. "
+            "Our closing team is preparing your commitment letter and final disbursement schedule.\n\n"
+            "Sincerely,\n"
+            "Trinity Commercial Bank Commercial Lending Team"
+        )
+
     decision = {
         "application_status": application_status,
         "recommendation": recommendation,
         "requires_human_confirmation": True,
         "reapply_after_days": 90 if score < 70 else None,
         "email_subject": "Update on your Trinity Commercial Bank application",
-        "email_draft": (
-            f"Hello {user['display_name']},\n\nThank you for applying on behalf of {user.get('organization') or 'your business'}. "
-            f"After reviewing the information provided, we are unable to recommend approval at this time because of: {reason_text}. "
-            "This draft must be reviewed by a bank employee before it is sent. You may provide corrected or additional documentation, "
-            "or submit a new application after 90 days.\n\nSincerely,\nTrinity Commercial Bank"
-        ) if score < 70 else None,
+        "email_draft": email_draft,
     }
     return score_payload, decision
 

@@ -265,7 +265,7 @@ function renderDealDetail(deal) {
     </header>
     <div class="detail-body">
       <section class="detail-card"><div class="request-head"><div><p class="eyebrow">SAFE-TO-CLOSE</p><h3>${deal.readiness}% ready</h3></div><span class="badge ${statusTone(deal.operational_state)}">${escapeHtml(deal.operational_state.replaceAll("_", " "))}</span></div><div class="bar" style="margin-top:14px;height:10px"><i style="width:${deal.readiness}%"></i></div><p class="muted">Next action: ${escapeHtml(nextAction(deal))}</p></section>
-      ${deal.portal_application?.score?.tier ? `<section class="detail-card"><div class="request-head"><div><p class="eyebrow">APPROVAL READINESS</p><h3>${escapeHtml(deal.portal_application.score.tier.replaceAll("_", " "))}</h3></div><strong class="decision-score">${deal.portal_application.score.approval_readiness}</strong></div><p class="muted">${escapeHtml(deal.portal_application.decision.recommendation)}</p><p class="muted">Suggested amount: ${money(deal.portal_application.score.suggested_amount)} · Human confirmation required</p></section>` : ""}
+      ${deal.portal_application?.score?.tier ? `<section class="detail-card"><div class="request-head"><div><p class="eyebrow">APPROVAL READINESS</p><h3>${escapeHtml(deal.portal_application.score.tier.replaceAll("_", " "))}</h3></div><strong class="decision-score">${deal.portal_application.score.approval_readiness}</strong></div><p class="muted">${escapeHtml(deal.portal_application.decision.recommendation)}</p><p class="muted">Suggested amount: ${money(deal.portal_application.score.suggested_amount)} · Human confirmation required</p>${deal.portal_application.decision?.email_draft ? `<div style="margin-top:14px;padding:12px;background:var(--bg-subtle,#f8fafc);border-radius:6px;border:1px solid var(--border,#e2e8f0)"><div class="request-head"><strong>Borrower communication draft</strong><button class="button ghost" type="button" onclick="navigator.clipboard.writeText(this.closest('.request-head').nextElementSibling.textContent);showToast('Notice copied to clipboard');" style="padding:4px 8px;font-size:11px">Copy draft</button></div><pre style="white-space:pre-wrap;font:inherit;font-size:12px;margin-top:8px;color:#334155">${escapeHtml(deal.portal_application.decision.email_draft)}</pre></div>` : ""}</section>` : ""}
       <section class="detail-card"><p class="eyebrow">EVIDENCE PASSPORT</p><h3>Extracted facts</h3><div class="detail-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px">${fields.map(([label,value]) => `<div><small class="muted">${label}</small><strong style="display:block;margin-top:4px">${escapeHtml(value)}</strong></div>`).join("")}</div></section>
       <section class="detail-card"><div class="request-head"><div><p class="eyebrow">PACKAGE VALIDATION</p><h3>${deal.issues.length} issues</h3></div><span>${deal.document_count} documents</span></div><div class="issues" style="margin-top:14px">${deal.issues.map(issue => `<span class="badge ${issue.startsWith("OLD_TRICK") ? "red" : "amber"}">${escapeHtml(issue)}</span>`).join("") || `<span class="badge green">No detected issues</span>`}</div></section>
       ${fraudDetail(deal)}
@@ -402,12 +402,12 @@ function openApplication(application) {
 }
 
 function field(name, label, type="text", extra="") {
-  const value = state.currentApplication.form?.[name] ?? "";
+  const value = state.currentApplication?.form?.[name] ?? "";
   return `<label>${label}<input data-field="${name}" type="${type}" value="${escapeHtml(value)}" ${extra}></label>`;
 }
 
 function renderWizard() {
-  const application = state.currentApplication;
+  const application = state.currentApplication || {};
   const step = state.currentStep;
   $("#wizard-title").textContent = STEP_TITLES[step - 1];
   $("#step-help").textContent = STEP_HELP[step - 1];
@@ -416,11 +416,11 @@ function renderWizard() {
   if (step === 1) content.innerHTML = `<h2>Tell us about the business</h2><p>Use the exact legal information shown on formation and IRS documents.</p><div class="form-grid two">${field("legal_name","Legal business name", "text", "required")}${field("dba","DBA / trade name")}${field("ein","Federal EIN", "text", "placeholder=12-3456789 required")}${field("formation_date","Formation date", "date", "required")}${field("annual_revenue_stated","Annual revenue", "number", "min=0 required")}${field("bank_account","Primary bank / account")}</div><div class="form-grid" style="margin-top:14px">${field("business_address","Business address", "text", "required")}${field("industry","Industry")}</div>`;
   if (step === 2) content.innerHTML = `<h2>What financing do you need?</h2><p>Tell us the amount, purpose, product, and timing.</p><div class="form-grid two">${field("amount_requested","Amount requested", "number", "min=1 required")}<label>Product<select data-field="product"><option>Term Loan</option><option>Equipment Loan</option><option>Revolving Line of Credit</option><option>Working Capital Loan</option></select></label>${field("term_months","Requested term (months)", "number", "min=1 required")}${field("needed_by","Funds needed by", "datetime-local")}</div><label style="margin-top:14px">Use of proceeds<textarea data-field="purpose" required>${escapeHtml(application.form?.purpose || "")}</textarea></label>`;
   if (step === 3) content.innerHTML = `<h2>Guarantor information</h2><p>This is matched against the uploaded photo ID for identity consistency.</p><div class="form-grid two">${field("guarantor_name","Full legal name", "text", "required")}${field("guarantor_dob","Date of birth", "date", "required")}${field("guarantor_dl_number","Driver license number", "text", "required")}${field("guarantor_address","Home address", "text", "required")}</div>`;
-  if (step === 4) content.innerHTML = `<h2>Upload your evidence package</h2><p>PDF, CSV, JPG, or PNG · maximum 10 MB per file. File content—not the filename—determines its type.</p><div class="upload-zone"><strong>Choose one or several documents</strong><p class="muted">Formation, EIN, ID, six bank statements, financials, tax return, and equipment quote when applicable.</p><input id="document-upload" type="file" accept=".pdf,.csv,.jpg,.jpeg,.png" multiple></div><div class="upload-list">${application.uploaded_documents.filter(d => d.document_type !== "loan_application").map(doc => `<div class="upload-item"><span><strong>${escapeHtml(doc.filename)}</strong><br><small>${escapeHtml(doc.document_type.replaceAll("_", " "))}</small></span><span class="badge ${doc.status === "PROCESSED" ? "green" : "amber"}">${doc.status}</span></div>`).join("") || `<p class="muted">No supporting documents uploaded yet.</p>`}</div>`;
+  if (step === 4) content.innerHTML = `<h2>Upload your evidence package</h2><p>PDF, CSV, JPG, or PNG · maximum 10 MB per file. File content—not the filename—determines its type.</p><div class="upload-zone"><strong>Choose one or several documents</strong><p class="muted">Formation, EIN, ID, six bank statements, financials, tax return, and equipment quote when applicable.</p><input id="document-upload" type="file" accept=".pdf,.csv,.jpg,.jpeg,.png" multiple></div><div class="upload-list">${(application.uploaded_documents || []).filter(d => d.document_type !== "loan_application").map(doc => `<div class="upload-item"><span><strong>${escapeHtml(doc.filename)}</strong><br><small>${escapeHtml(doc.document_type.replaceAll("_", " "))}</small></span><span class="badge ${doc.status === "PROCESSED" ? "green" : "amber"}">${doc.status}</span></div>`).join("") || `<p class="muted">No supporting documents uploaded yet.</p>`}</div>`;
   if (step === 5) content.innerHTML = reviewMarkup(application);
   if (step === 2 && application.form?.product) $("[data-field='product']").value = application.form.product;
   $("#wizard-back").disabled = step === 1;
-  const locked = !["draft", "needs_information"].includes(application.status);
+  const locked = !["draft", "needs_information"].includes(application.status || "draft");
   $("#wizard-next").classList.toggle("hidden", locked);
   $("#wizard-next").textContent = step === 5 ? "Submit application" : "Save and continue";
 }
@@ -430,7 +430,7 @@ function reviewMarkup(application) {
   if (application.status !== "draft" && application.status !== "needs_information") {
     const score = application.score || {};
     const tierClass = score.tier === "FAST_TRACK" ? "fast" : score.tier === "HUMAN_REVIEW" ? "review" : "decline";
-    return `<div class="decision-banner ${tierClass}"><span class="decision-score">${score.approval_readiness ?? "—"}</span><h2>${escapeHtml((score.tier || application.status).replaceAll("_", " "))}</h2><p>${escapeHtml(application.decision?.recommendation)}</p>${score.suggested_amount != null ? `<p><strong>Suggested amount: ${money(score.suggested_amount)}</strong></p>` : ""}</div><div class="review-section" style="margin-top:22px"><h3>What happens next</h3><p class="muted">The bank can see the same structured record, evidence version, validation issues, score reasons, and audit log. Every actual approval and funding release remains role-gated.</p></div>${application.decision?.email_draft ? `<div class="review-section"><h3>Bank-reviewable notice draft</h3><pre style="white-space:pre-wrap;font:inherit;font-size:12px">${escapeHtml(application.decision.email_draft)}</pre></div>` : ""}`;
+    return `<div class="decision-banner ${tierClass}"><span class="decision-score">${score.approval_readiness ?? "—"}</span><h2>${escapeHtml((score.tier || application.status).replaceAll("_", " "))}</h2><p>${escapeHtml(application.decision?.recommendation)}</p>${score.suggested_amount != null ? `<p><strong>Suggested facility: ${money(score.suggested_amount)}</strong></p>` : ""}</div><div class="review-section" style="margin-top:22px"><h3>Application status</h3><p class="muted">Your application has been received and is being processed by Trinity Commercial Bank. A lending officer will contact you shortly with next steps.</p></div>`;
   }
   const pairs = [["Business", form.legal_name],["EIN",form.ein],["Requested",money(form.amount_requested)],["Product",form.product],["Purpose",form.purpose],["Term",form.term_months ? `${form.term_months} months` : null],["Guarantor",form.guarantor_name],["Documents",`${application.uploaded_documents.filter(d => d.document_type !== "loan_application").length} uploaded`]];
   return `<h2>Review before submitting</h2><p>This creates a versioned record for the bank. You cannot edit it unless a reviewer requests more information.</p><div class="review-section"><h3>Application record</h3><div class="review-grid">${pairs.map(([label,value]) => `<div><span>${label}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}</div></div><div class="security-note"><strong>By submitting</strong><span>You confirm the information is accurate and authorize the bank to review the uploaded business records. Submission does not guarantee approval or funding.</span></div>`;
@@ -442,10 +442,25 @@ function collectStepForm() {
   return form;
 }
 
+async function ensureCurrentApplication() {
+  if (state.currentApplication?.id) return state.currentApplication;
+  if (!state.applications || !state.applications.length) {
+    try { state.applications = await api("/api/consumer/applications"); } catch (_) { state.applications = []; }
+  }
+  let app = state.applications.find(a => a && (a.status === "draft" || a.status === "needs_information"));
+  if (!app) {
+    app = await api("/api/consumer/applications", {method:"POST", body:"{}"});
+    state.applications.unshift(app);
+  }
+  state.currentApplication = app;
+  return app;
+}
+
 async function saveCurrentStep(nextStep = state.currentStep) {
-  const result = await api(`/api/consumer/applications/${state.currentApplication.id}/save`, {method:"POST", body:JSON.stringify({form:collectStepForm(), current_step:nextStep})});
+  const app = await ensureCurrentApplication();
+  const result = await api(`/api/consumer/applications/${app.id}/save`, {method:"POST", body:JSON.stringify({form:collectStepForm(), current_step:nextStep})});
   state.currentApplication = result;
-  const index = state.applications.findIndex(item => item.id === result.id);
+  const index = state.applications.findIndex(item => item?.id === result?.id);
   if (index >= 0) state.applications[index] = result;
 }
 
@@ -455,6 +470,7 @@ async function wizardNext() {
     const invalid = inputs.find(input => !input.checkValidity());
     if (invalid) { invalid.reportValidity(); return; }
     $("#wizard-next").disabled = true;
+    const app = await ensureCurrentApplication();
     if (state.currentStep < 5) {
       await saveCurrentStep(state.currentStep + 1);
       state.currentStep += 1;
@@ -462,8 +478,8 @@ async function wizardNext() {
       return;
     }
     await saveCurrentStep(5);
-    state.currentApplication = await api(`/api/consumer/applications/${state.currentApplication.id}/submit`, {method:"POST", body:"{}"});
-    const index = state.applications.findIndex(item => item.id === state.currentApplication.id);
+    state.currentApplication = await api(`/api/consumer/applications/${app.id}/submit`, {method:"POST", body:"{}"});
+    const index = state.applications.findIndex(item => item?.id === state.currentApplication?.id);
     if (index >= 0) state.applications[index] = state.currentApplication;
     renderWizard();
     showConsumerToast("Application submitted and scored securely");
@@ -472,6 +488,7 @@ async function wizardNext() {
 }
 
 async function uploadFiles(files) {
+  const app = await ensureCurrentApplication();
   for (const file of files) {
     try {
       showConsumerToast(`Uploading ${file.name}…`);
@@ -481,7 +498,7 @@ async function uploadFiles(files) {
         reader.onerror = () => reject(new Error("Could not read the selected file"));
         reader.readAsDataURL(file);
       });
-      const result = await api(`/api/consumer/applications/${state.currentApplication.id}/upload`, {method:"POST", body:JSON.stringify({filename:file.name, content_base64:encoded})});
+      const result = await api(`/api/consumer/applications/${app.id}/upload`, {method:"POST", body:JSON.stringify({filename:file.name, content_base64:encoded})});
       state.currentApplication = result.application;
     } catch (error) { showConsumerToast(`${file.name}: ${error.message}`, true); }
   }
