@@ -97,6 +97,8 @@ main { min-width: 0; padding: 0 32px 48px; }
 .button.icon { width: 38px; padding: 0; border-color: #cfd8d2; background: white; font-size: 18px; }
 .button.danger { color: var(--red); background: var(--red-soft); }
 .button:disabled { opacity: .45; cursor: not-allowed; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.row-actions .button { padding: 4px 8px; font-size: 11px; white-space: nowrap; }
 .text-button { border: 0; padding: 0; color: var(--green); background: none; font-weight: 700; cursor: pointer; }
 
 .view { display: none; padding-top: 28px; }
@@ -882,6 +884,53 @@ tbody tr:hover { background: var(--soft); }
 .upload-dropzone.dragover {
   border-color: #10b981 !important;
   background: #ecfdf5 !important;
+}
+.upload-queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.upload-queue-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  text-align: left;
+}
+.upload-queue-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.upload-queue-status {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.upload-queue-item.is-uploading .upload-queue-status { color: #047857; }
+.upload-queue-item.is-done .upload-queue-status { color: #166534; }
+.upload-queue-item.is-error .upload-queue-status { color: #b91c1c; }
+.upload-queue-remove {
+  padding: 2px 8px;
+  font-size: 11px;
+  color: #ef4444;
 }
 .fact-item-card {
   padding: 8px 10px;

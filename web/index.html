@@ -68,16 +68,16 @@
             </div>
           </div>
 
-          <form id="form-borrower-login" style="display:flex;flex-direction:column;gap:14px;">
+          <form id="form-borrower-login" autocomplete="on" style="display:flex;flex-direction:column;gap:14px;">
             <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#1e293b;">
               Borrower Business Email
-              <input id="borrower-login-email" type="email" placeholder="e.g. dave@oaklineauto.example" required style="padding:11px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;">
+              <input id="borrower-login-email" name="borrower-email" type="email" autocomplete="username" placeholder="e.g. dave@oaklineauto.example" required style="padding:11px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;">
             </label>
 
             <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#1e293b;">
               Account Password
               <div style="position:relative;display:flex;align-items:center;">
-                <input id="borrower-login-pass" type="password" placeholder="Enter your password..." required style="padding:11px 40px 11px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;width:100%;">
+                <input id="borrower-login-pass" name="borrower-password" type="password" autocomplete="current-password" placeholder="Enter your password..." required style="padding:11px 40px 11px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;width:100%;">
                 <button type="button" id="btn-toggle-borrower-login-pass" style="position:absolute;right:10px;background:none;border:none;cursor:pointer;font-size:16px;color:#64748b;" title="Show/Hide Password">👁️</button>
               </div>
             </label>
@@ -90,7 +90,7 @@
 
         <!-- 2. Register / Apply Tab Content -->
         <div id="borrower-register-pane" class="hidden">
-          <form id="form-borrower-register" style="display:flex;flex-direction:column;gap:14px;">
+          <form id="form-borrower-register" autocomplete="off" style="display:flex;flex-direction:column;gap:14px;">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
               <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#1e293b;">
                 Business Legal Name *
@@ -112,7 +112,7 @@
               <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#1e293b;">
                 Create Account Password *
                 <div style="position:relative;display:flex;align-items:center;">
-                  <input id="borrower-reg-pass" type="password" placeholder="Create secure password..." required style="padding:10px 36px 10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;width:100%;">
+                  <input id="borrower-reg-pass" name="new-borrower-password" type="password" autocomplete="new-password" placeholder="Create secure password..." required style="padding:10px 36px 10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;width:100%;">
                   <button type="button" id="btn-toggle-borrower-reg-pass" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;font-size:15px;color:#64748b;" title="Show/Hide Password">👁️</button>
                 </div>
               </label>
@@ -528,20 +528,21 @@
 
             <!-- Dropzone -->
             <div id="borrower-dropzone" style="border:2px dashed #cbd5e1;border-radius:12px;padding:24px 16px;text-align:center;background:#f8fafc;cursor:pointer;transition:all 0.2s;">
-              <input type="file" id="borrower-file-input" accept=".pdf,.csv,.jpg,.jpeg,.png" style="display:none;">
-              <div id="borrower-dropzone-empty">
-                <span style="font-size:28px;display:block;margin-bottom:6px;">📄</span>
-                <strong style="font-size:13px;color:#334155;display:block;">Choose a file or drag & drop</strong>
-                <small style="color:#94a3b8;font-size:11px;">PDF, CSV, JPG, PNG up to 25 MB</small>
-              </div>
-              <div id="borrower-dropzone-selected" class="hidden" style="display:flex;align-items:center;justify-content:space-between;background:white;padding:8px 12px;border-radius:8px;border:1px solid #e2e8f0;">
-                <span id="borrower-selected-name" style="font-size:12px;font-weight:600;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;">file.pdf</span>
-                <button type="button" id="btn-borrower-remove-file" class="button ghost" style="padding:2px 8px;font-size:11px;color:#ef4444;">✕</button>
-              </div>
+              <input type="file" id="borrower-file-input" accept=".pdf,.csv,.jpg,.jpeg,.png" multiple style="display:none;">
+              <span style="font-size:28px;display:block;margin-bottom:6px;">📄</span>
+              <strong style="font-size:13px;color:#334155;display:block;">Choose, drop, or paste files</strong>
+              <small style="color:#94a3b8;font-size:11px;">PDF, CSV, JPG, PNG up to 25 MB each. They upload one at a time.</small>
             </div>
+            <ul id="borrower-upload-queue" class="upload-queue hidden"></ul>
+
+            <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;font-size:13px;font-weight:600;color:#1e293b;">
+              Use regex
+              <input id="borrower-upload-regex" type="checkbox" style="width:18px;height:18px;">
+            </label>
+            <p id="borrower-upload-mode" style="margin:-6px 0 0;font-size:12px;color:#64748b;">Off: the local model reads the file. On: the regex matcher reads it.</p>
 
             <button type="submit" id="btn-borrower-submit-upload" class="button primary" style="padding:11px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;">
-              <span>⚡ Upload Document</span>
+              <span>⚡ Upload queue</span>
             </button>
           </form>
         </section>
@@ -907,26 +908,15 @@
           <!-- Drag and Drop Zone -->
           <div>
             <label style="display:block;font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;">
-              Select File <span style="color:#ef4444;">*</span>
+              Files <span style="color:#ef4444;">*</span>
             </label>
             <div id="upload-dropzone" class="upload-dropzone" style="border:2px dashed #cbd5e1;border-radius:14px;padding:26px 20px;text-align:center;background:#f8fafc;cursor:pointer;transition:all 0.2s;">
-              <input type="file" id="upload-file-input" accept=".pdf,.csv,.jpg,.jpeg,.png" style="display:none;">
-              <div id="dropzone-empty-state">
-                <span style="font-size:36px;display:block;margin-bottom:8px;">📁</span>
-                <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#334155;">Drag & drop loan file here, or <span style="color:#10b981;text-decoration:underline;">browse files</span></p>
-                <p style="margin:0;font-size:12px;color:#94a3b8;">Supports PDF, CSV, JPG, PNG (Max 25 MB)</p>
-              </div>
-              <div id="dropzone-file-state" class="hidden" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:white;border-radius:10px;border:1px solid #e2e8f0;">
-                <div style="display:flex;align-items:center;gap:10px;text-align:left;">
-                  <span id="upload-file-icon" style="font-size:24px;">📄</span>
-                  <div>
-                    <strong id="upload-file-name" style="font-size:13px;color:#1e293b;display:block;">filename.pdf</strong>
-                    <span id="upload-file-size" style="font-size:11px;color:#64748b;">128 KB</span>
-                  </div>
-                </div>
-                <button type="button" id="btn-remove-file" class="button ghost" style="padding:4px 8px;font-size:12px;color:#ef4444;">Remove</button>
-              </div>
+              <input type="file" id="upload-file-input" accept=".pdf,.csv,.jpg,.jpeg,.png" multiple style="display:none;">
+              <span style="font-size:36px;display:block;margin-bottom:8px;">📁</span>
+              <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#334155;">Drop, paste, or <span style="color:#10b981;text-decoration:underline;">browse files</span></p>
+              <p style="margin:0;font-size:12px;color:#94a3b8;">PDF, CSV, JPG, PNG up to 25 MB each. Files upload one at a time.</p>
             </div>
+            <ul id="upload-queue" class="upload-queue hidden"></ul>
           </div>
 
           <!-- Form Actions -->

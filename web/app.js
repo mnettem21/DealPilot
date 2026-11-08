@@ -76,6 +76,26 @@ const ROLES = {
   }
 };
 
+const STAGE_DECISIONS = {
+  credit: [
+    ["approve", "Approve", "primary"],
+    ["request_info", "Request info", "ghost"],
+    ["decline", "Decline", "danger"],
+  ],
+  committee: [
+    ["approve", "Approve", "primary"],
+    ["decline", "Decline", "danger"],
+  ],
+  committed: [
+    ["approve", "Approve", "primary"],
+    ["decline", "Decline", "danger"],
+  ],
+  closed: [
+    ["approve", "Approve funding", "primary"],
+    ["decline", "Decline", "danger"],
+  ],
+};
+
 const state = {
   currentUser: null,
   activeRole: "admin",
@@ -262,6 +282,22 @@ function showBorrowerAuth() {
   $("#bank-shell")?.classList.add("hidden");
   $("#borrower-dashboard")?.classList.add("hidden");
   $("#borrower-auth-screen")?.classList.remove("hidden");
+  const pass = $("#borrower-login-pass");
+  if (pass) pass.value = "";
+}
+
+function returnToBorrower() {
+  const saved = localStorage.getItem("dealpilot_borrower");
+  if (saved) {
+    try {
+      showBorrowerDashboard(JSON.parse(saved));
+      return true;
+    } catch (e) {
+      localStorage.removeItem("dealpilot_borrower");
+    }
+  }
+  showBorrowerAuth();
+  return false;
 }
 
 function showStaffAuth() {
@@ -316,7 +352,10 @@ async function logoutUser() {
   localStorage.removeItem("dealpilot_user");
   state.currentUser = null;
   $("#bank-shell")?.classList.add("hidden");
-  showBorrowerAuth();
+  if (returnToBorrower()) {
+    showToast("Officer signed out. Back on your loan application.");
+    return;
+  }
   showToast("Officer signed out of workstation.");
 }
 
@@ -630,10 +669,15 @@ function renderDynamicTable(records, meta) {
   }
 
   const user = state.currentUser || ROLES["admin"];
+  const decisions = stageDecisionsFor(meta.name, user);
 
   tbody.innerHTML = filtered.map(r => {
     const isClosedQueue = meta.name === "closed";
+    const terminal = r.status === "declined" || r.status === "funded";
     const canDisburse = isClosedQueue && r.status !== "funded" && (user.role === "admin" || user.role === "closing");
+    const decisionButtons = !terminal ? decisions.map(([decision, label, tone]) => `
+      <button class="button ${tone}" type="button" data-human-decision="${decision}" data-human-folder="${escapeHtml(r.folder || "")}">${label}</button>
+    `).join("") : "";
 
     return `<tr>
       ${finalCols.map(col => {
@@ -672,13 +716,16 @@ function renderDynamicTable(records, meta) {
         const display = str.length > 44 ? str.slice(0, 42) + "…" : str;
         return `<td title="${escapeHtml(str)}">${escapeHtml(display)}</td>`;
       }).join("")}
-      <td style="white-space:nowrap;">
-        <button class="button ghost" style="padding:4px 9px;font-size:11px;" data-inspect-record="${escapeHtml(r.id)}">🔍 Inspect</button>
+      <td>
+        <div class="row-actions">
+        <button class="button ghost" type="button" data-inspect-record="${escapeHtml(r.id)}">Inspect</button>
+        ${decisionButtons}
         ${canDisburse ? `
           <button class="button primary" style="padding:4px 10px;font-size:11px;background:linear-gradient(135deg, #10b981, #059669);border:none;margin-left:6px;box-shadow:0 2px 8px rgba(16,185,129,0.3);" data-release-fund="${escapeHtml(r.folder)}">
-            ⚡ Release Funds
+            Release Funds
           </button>
         ` : ""}
+        </div>
       </td>
     </tr>`;
   }).join("");
@@ -821,6 +868,47 @@ async function triggerFraudDetectionAgent() {
 // -------------------------------------------------------------
 // Capital Release / Funding Execution
 // -------------------------------------------------------------
+
+function stageDecisionsFor(tableName, user) {
+  const decisions = STAGE_DECISIONS[tableName] || [];
+  if (!decisions || user.role === "fraud_ops" || user.role === "borrower") return [];
+  if (user.role !== "admin" && !(user.allowed_stages || []).includes(tableName)) return [];
+  return decisions;
+}
+
+async function submitHumanDecision(folder, decision) {
+  const user = state.currentUser || ROLES["admin"];
+  const stage = state.currentTable;
+  if (decision === "decline" && !confirm(`Decline ${folder}? This stops the deal in ${stage}.`)) return;
+  const labels = {approve: "Approving", decline: "Declining", request_info: "Requesting information on"};
+  showToast(`${labels[decision] || "Updating"} ${folder}...`);
+  try {
+    const res = await api("/api/human-answer", {
+      method: "POST",
+      body: JSON.stringify({
+        folder,
+        stage,
+        decision,
+        actor: user.person_id,
+      }),
+    });
+    if (decision === "decline") {
+      showToast(`${folder} declined in ${stage}.`);
+    } else if (decision === "request_info") {
+      showToast(`${folder} is waiting on more information.`);
+    } else if (res.blockers && res.blockers.length) {
+      showToast(`${folder} is approved, but still blocked: ${res.blockers.join(", ")}`, true);
+    } else if (res.will_advance) {
+      showToast(`${folder} approved. It moves to the next stage on the next rules pass.`);
+    } else {
+      showToast(`${folder} approved.`);
+    }
+    await loadTablesList();
+    if (state.currentTable) await loadTableRecords(state.currentTable);
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
 
 async function releaseDealFunding(folder) {
   if (!confirm(`Confirm capital release and funds disbursement for '${folder}'?`)) return;
@@ -966,6 +1054,11 @@ document.addEventListener("click", async event => {
       openJsonInspector(data);
     } catch (e) {}
     return;
+  }
+
+  const decisionBtn = event.target.closest("[data-human-decision]");
+  if (decisionBtn) {
+    return submitHumanDecision(decisionBtn.dataset.humanFolder, decisionBtn.dataset.humanDecision);
   }
 
   const releaseBtn = event.target.closest("[data-release-fund]");
@@ -1131,7 +1224,77 @@ $("#form-manual-login")?.addEventListener("submit", async event => {
 // Document Upload & AI Parsing Functions
 // -------------------------------------------------------------
 
-let selectedUploadFile = null;
+const UPLOAD_EXTS = new Set(["pdf", "csv", "jpg", "jpeg", "png"]);
+const UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
+let officerQueue = [];
+let officerDraining = false;
+
+function queueId() {
+  return `q-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function acceptUploadFiles(fileList) {
+  const accepted = [];
+  const skipped = [];
+  for (const file of Array.from(fileList || [])) {
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (!UPLOAD_EXTS.has(ext) || file.size > UPLOAD_MAX_BYTES) skipped.push(file.name);
+    else accepted.push(file);
+  }
+  if (skipped.length) {
+    showToast(`Skipped ${skipped.length} file${skipped.length === 1 ? "" : "s"} that are not PDF, CSV, JPG, or PNG, or are over 25 MB.`, true);
+  }
+  return accepted;
+}
+
+function readFileBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const raw = String(reader.result || "");
+      const comma = raw.indexOf(",");
+      resolve(comma >= 0 ? raw.slice(comma + 1) : raw);
+    };
+    reader.onerror = () => reject(reader.error || new Error(`Could not read ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderUploadQueue(listEl, items) {
+  if (!listEl) return;
+  if (!items.length) {
+    listEl.classList.add("hidden");
+    listEl.innerHTML = "";
+    return;
+  }
+  listEl.classList.remove("hidden");
+  listEl.innerHTML = items.map(item => {
+    const statusText = item.status === "waiting" ? "Waiting"
+      : item.status === "uploading" ? "Uploading"
+      : item.status === "done" ? (item.detail || "Done")
+      : (item.detail || "Failed");
+    const remove = item.status === "waiting"
+      ? `<button type="button" class="button ghost upload-queue-remove" data-queue-remove="${item.id}">Remove</button>`
+      : "";
+    return `<li class="upload-queue-item is-${item.status}">
+      <span class="upload-queue-name">${escapeHtml(item.file.name)}</span>
+      <span class="upload-queue-status">${escapeHtml(statusText)}</span>
+      ${remove}
+    </li>`;
+  }).join("");
+}
+
+function renderOfficerQueue() {
+  renderUploadQueue($("#upload-queue"), officerQueue);
+  const btn = $("#btn-submit-upload");
+  const waiting = officerQueue.filter(item => item.status === "waiting").length;
+  if (btn && !officerDraining) {
+    btn.disabled = false;
+    btn.innerHTML = waiting
+      ? `<span>⚡</span> Upload ${waiting} file${waiting === 1 ? "" : "s"}`
+      : `<span>⚡</span> Upload & Extract Facts`;
+  }
+}
 
 async function loadDealFoldersDropdown() {
   const select = $("#upload-deal-folder-select");
@@ -1163,7 +1326,8 @@ async function loadDealFoldersDropdown() {
 }
 
 function openUploadModal() {
-  selectedUploadFile = null;
+  officerQueue = [];
+  renderOfficerQueue();
   const modal = $("#upload-doc-modal");
   const form = $("#form-upload-document");
   const resultContainer = $("#upload-result-container");
@@ -1177,7 +1341,6 @@ function openUploadModal() {
     customInput.value = "";
   }
   if (fileInput) fileInput.value = "";
-  resetDropzone();
 
   loadDealFoldersDropdown();
   modal?.classList.remove("hidden");
@@ -1187,30 +1350,13 @@ function closeUploadModal() {
   $("#upload-doc-modal")?.classList.add("hidden");
 }
 
-function resetDropzone() {
-  selectedUploadFile = null;
-  $("#dropzone-empty-state")?.classList.remove("hidden");
-  $("#dropzone-file-state")?.classList.add("hidden");
-}
-
-function setUploadFile(file) {
-  if (!file) return;
-  selectedUploadFile = file;
-  const nameEl = $("#upload-file-name");
-  if (nameEl) nameEl.textContent = file.name;
-  const sizeKb = (file.size / 1024).toFixed(1);
-  const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
-  const sizeEl = $("#upload-file-size");
-  if (sizeEl) sizeEl.textContent = file.size > 1024 * 1024 ? `${sizeMb} MB` : `${sizeKb} KB`;
-
-  const ext = file.name.split(".").pop().toLowerCase();
-  const icon = $("#upload-file-icon");
-  if (icon) {
-    icon.textContent = ext === "pdf" ? "📕" : ext === "csv" ? "📊" : (ext === "jpg" || ext === "jpeg" || ext === "png") ? "🖼️" : "📄";
+function addOfficerFiles(fileList) {
+  const accepted = acceptUploadFiles(fileList);
+  if (!accepted.length) return;
+  for (const file of accepted) {
+    officerQueue.push({ id: queueId(), file, status: "waiting", detail: "" });
   }
-
-  $("#dropzone-empty-state")?.classList.add("hidden");
-  $("#dropzone-file-state")?.classList.remove("hidden");
+  renderOfficerQueue();
 }
 
 function formatFactValue(key, val) {
@@ -1227,9 +1373,7 @@ function formatFactValue(key, val) {
 }
 
 function renderUploadResults(data) {
-  const form = $("#form-upload-document");
   const resultContainer = $("#upload-result-container");
-  if (form) form.classList.add("hidden");
   if (resultContainer) resultContainer.classList.remove("hidden");
 
   const metaEl = $("#upload-result-meta");
@@ -1268,21 +1412,20 @@ function renderUploadResults(data) {
 const dropzone = $("#upload-dropzone");
 const fileInput = $("#upload-file-input");
 
-dropzone?.addEventListener("click", e => {
-  if (e.target.closest("#btn-remove-file")) return;
+dropzone?.addEventListener("click", () => {
   fileInput?.click();
 });
 
 fileInput?.addEventListener("change", e => {
-  if (e.target.files && e.target.files[0]) {
-    setUploadFile(e.target.files[0]);
-  }
+  addOfficerFiles(e.target.files);
+  e.target.value = "";
 });
 
-$("#btn-remove-file")?.addEventListener("click", e => {
-  e.stopPropagation();
-  resetDropzone();
-  if (fileInput) fileInput.value = "";
+$("#upload-queue")?.addEventListener("click", e => {
+  const btn = e.target.closest("[data-queue-remove]");
+  if (!btn) return;
+  officerQueue = officerQueue.filter(item => item.id !== btn.dataset.queueRemove || item.status !== "waiting");
+  renderOfficerQueue();
 });
 
 dropzone?.addEventListener("dragover", e => {
@@ -1297,9 +1440,7 @@ dropzone?.addEventListener("dragleave", () => {
 dropzone?.addEventListener("drop", e => {
   e.preventDefault();
   dropzone.classList.remove("dragover");
-  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
-    setUploadFile(e.dataTransfer.files[0]);
-  }
+  addOfficerFiles(e.dataTransfer?.files);
 });
 
 // Deal folder select change
@@ -1340,58 +1481,63 @@ $("#form-upload-document")?.addEventListener("submit", async event => {
     showToast("Please choose or specify a deal folder name.", true);
     return;
   }
-  if (!selectedUploadFile) {
-    showToast("Please select a document file to upload.", true);
+  const pending = officerQueue.filter(item => item.status === "waiting");
+  if (!pending.length) {
+    showToast("Add at least one document to the queue.", true);
     return;
   }
+  if (officerDraining) return;
 
   const docType = $("#upload-doc-type-select")?.value || "auto";
   const submitBtn = $("#btn-submit-upload");
+  officerDraining = true;
+  let done = 0;
+  let failed = 0;
+  const total = pending.length;
   if (submitBtn) {
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span>⏳ Ingesting & Extracting...</span>';
+    submitBtn.innerHTML = `<span>⏳</span> Uploading 1 of ${total}`;
   }
 
-  showToast(`Ingesting ${selectedUploadFile.name} and extracting facts...`);
-
   try {
-    const reader = new FileReader();
-    reader.onload = async () => {
+    for (const item of pending) {
+      if (!officerQueue.includes(item) || item.status !== "waiting") continue;
+      item.status = "uploading";
+      renderOfficerQueue();
+      if (submitBtn) submitBtn.innerHTML = `<span>⏳</span> Uploading ${done + failed + 1} of ${total}`;
       try {
-        const base64Data = reader.result.split(",")[1];
+        const content_base64 = await readFileBase64(item.file);
         const res = await api("/api/upload", {
           method: "POST",
           body: JSON.stringify({
             folder,
-            filename: selectedUploadFile.name,
-            content_base64: base64Data,
+            filename: item.file.name,
+            content_base64,
             doc_type: docType,
             actor: state.currentUser?.person_id || "bank.officer"
           })
         });
-
+        item.status = "done";
+        item.detail = res.document_type || "Done";
+        done += 1;
         renderUploadResults(res);
-        showToast(`Document ingested! ${Object.keys(res.facts || {}).length} facts extracted.`);
         await loadTablesList();
         if (state.currentTable === "files" || state.currentTable === res.absorbed_stage) {
           await loadTableRecords(state.currentTable);
         }
       } catch (err) {
-        showToast(err.message, true);
-      } finally {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = '<span>⚡</span> Upload & Extract Facts';
-        }
+        item.status = "error";
+        item.detail = err.message || "Failed";
+        failed += 1;
       }
-    };
-    reader.readAsDataURL(selectedUploadFile);
-  } catch (err) {
-    showToast(`File read error: ${err.message}`, true);
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = '<span>⚡</span> Upload & Extract Facts';
+      renderOfficerQueue();
     }
+    showToast(failed
+      ? `Uploaded ${done} of ${total}. ${failed} failed.`
+      : `Uploaded ${done} file${done === 1 ? "" : "s"}.`);
+  } finally {
+    officerDraining = false;
+    renderOfficerQueue();
   }
 });
 
@@ -1445,7 +1591,9 @@ $("#fraud-search")?.addEventListener("input", () => renderFraudPage());
 
 // Switch between Customer Portal and Staff Workstation Portal
 $("#btn-goto-staff-portal")?.addEventListener("click", () => showStaffAuth());
-$("#btn-goto-borrower-portal")?.addEventListener("click", () => showBorrowerAuth());
+$("#btn-goto-borrower-portal")?.addEventListener("click", () => {
+  if (!returnToBorrower()) showToast("Sign in to your loan application.");
+});
 $("#btn-borrower-logout")?.addEventListener("click", () => logoutBorrower());
 
 // Borrower Tabs Toggle (Login vs Register)
@@ -1553,28 +1701,44 @@ $("#form-borrower-register")?.addEventListener("submit", async event => {
 // Borrower Document Upload Dropzone & Form
 const bDropzone = $("#borrower-dropzone");
 const bFileInput = $("#borrower-file-input");
+let borrowerQueue = [];
+let borrowerDraining = false;
 
-bDropzone?.addEventListener("click", e => {
-  if (e.target.closest("#btn-borrower-remove-file")) return;
+function renderBorrowerQueue() {
+  renderUploadQueue($("#borrower-upload-queue"), borrowerQueue);
+  const btn = $("#btn-borrower-submit-upload");
+  const waiting = borrowerQueue.filter(item => item.status === "waiting").length;
+  if (btn && !borrowerDraining) {
+    btn.disabled = false;
+    btn.innerHTML = waiting
+      ? `<span>⚡ Upload ${waiting} file${waiting === 1 ? "" : "s"}</span>`
+      : `<span>⚡ Upload queue</span>`;
+  }
+}
+
+function addBorrowerFiles(fileList) {
+  const accepted = acceptUploadFiles(fileList);
+  if (!accepted.length) return;
+  for (const file of accepted) {
+    borrowerQueue.push({ id: queueId(), file, status: "waiting", detail: "" });
+  }
+  renderBorrowerQueue();
+}
+
+bDropzone?.addEventListener("click", () => {
   bFileInput?.click();
 });
 
 bFileInput?.addEventListener("change", e => {
-  if (e.target.files && e.target.files[0]) {
-    borrowerSelectedFile = e.target.files[0];
-    const nameEl = $("#borrower-selected-name");
-    if (nameEl) nameEl.textContent = borrowerSelectedFile.name;
-    $("#borrower-dropzone-empty")?.classList.add("hidden");
-    $("#borrower-dropzone-selected")?.classList.remove("hidden");
-  }
+  addBorrowerFiles(e.target.files);
+  e.target.value = "";
 });
 
-$("#btn-borrower-remove-file")?.addEventListener("click", e => {
-  e.stopPropagation();
-  borrowerSelectedFile = null;
-  if (bFileInput) bFileInput.value = "";
-  $("#borrower-dropzone-empty")?.classList.remove("hidden");
-  $("#borrower-dropzone-selected")?.classList.add("hidden");
+$("#borrower-upload-queue")?.addEventListener("click", e => {
+  const btn = e.target.closest("[data-queue-remove]");
+  if (!btn) return;
+  borrowerQueue = borrowerQueue.filter(item => item.id !== btn.dataset.queueRemove || item.status !== "waiting");
+  renderBorrowerQueue();
 });
 
 bDropzone?.addEventListener("dragover", e => {
@@ -1592,19 +1756,30 @@ bDropzone?.addEventListener("drop", e => {
   e.preventDefault();
   bDropzone.style.borderColor = "#cbd5e1";
   bDropzone.style.background = "#f8fafc";
-  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
-    borrowerSelectedFile = e.dataTransfer.files[0];
-    const nameEl = $("#borrower-selected-name");
-    if (nameEl) nameEl.textContent = borrowerSelectedFile.name;
-    $("#borrower-dropzone-empty")?.classList.add("hidden");
-    $("#borrower-dropzone-selected")?.classList.remove("hidden");
+  addBorrowerFiles(e.dataTransfer?.files);
+});
+
+document.addEventListener("paste", event => {
+  const files = event.clipboardData?.files;
+  if (!files?.length) return;
+  const modal = $("#upload-doc-modal");
+  const dashboard = $("#borrower-dashboard");
+  if (modal && !modal.classList.contains("hidden")) {
+    event.preventDefault();
+    addOfficerFiles(files);
+    return;
+  }
+  if (dashboard && !dashboard.classList.contains("hidden")) {
+    event.preventDefault();
+    addBorrowerFiles(files);
   }
 });
 
 $("#form-borrower-doc-upload")?.addEventListener("submit", async event => {
   event.preventDefault();
-  if (!borrowerSelectedFile) {
-    showToast("Please choose a file to upload.", true);
+  const pending = borrowerQueue.filter(item => item.status === "waiting");
+  if (!pending.length) {
+    showToast("Add at least one file to the queue.", true);
     return;
   }
   const folder = state.currentBorrower?.folder || state.currentBorrower?.business_name;
@@ -1612,55 +1787,57 @@ $("#form-borrower-doc-upload")?.addEventListener("submit", async event => {
     showToast("Borrower deal folder is missing.", true);
     return;
   }
+  if (borrowerDraining) return;
 
   const docType = $("#borrower-upload-doctype")?.value || "other";
+  const useRegex = Boolean($("#borrower-upload-regex")?.checked);
   const btn = $("#btn-borrower-submit-upload");
+  borrowerDraining = true;
+  let done = 0;
+  let failed = 0;
+  const total = pending.length;
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<span>⏳ Uploading & Ingesting...</span>';
+    btn.innerHTML = `<span>⏳ Uploading 1 of ${total}</span>`;
   }
 
-  showToast(`Uploading ${borrowerSelectedFile.name}...`);
   try {
-    const reader = new FileReader();
-    reader.onload = async () => {
+    for (const item of pending) {
+      if (!borrowerQueue.includes(item) || item.status !== "waiting") continue;
+      item.status = "uploading";
+      renderBorrowerQueue();
+      if (btn) btn.innerHTML = `<span>⏳ Uploading ${done + failed + 1} of ${total}</span>`;
       try {
-        const base64Data = reader.result.split(",")[1];
+        const content_base64 = await readFileBase64(item.file);
         const res = await api("/api/borrower/upload", {
           method: "POST",
           body: JSON.stringify({
             folder,
-            filename: borrowerSelectedFile.name,
-            content_base64: base64Data,
-            doc_type: docType
+            filename: item.file.name,
+            content_base64,
+            doc_type: docType,
+            use_regex: useRegex
           })
         });
-
-        showToast(`Document uploaded successfully! Type: ${res.document_type}`);
-        // Reset file input
-        borrowerSelectedFile = null;
-        if (bFileInput) bFileInput.value = "";
-        $("#borrower-dropzone-empty")?.classList.remove("hidden");
-        $("#borrower-dropzone-selected")?.classList.add("hidden");
-
-        // Reload borrower status
+        const mode = res.extractor === "regex" ? "regex" : "local model";
+        item.status = "done";
+        item.detail = `${res.document_type || "Done"} · ${mode}`;
+        done += 1;
         await loadBorrowerStatus(folder);
       } catch (err) {
-        showToast(err.message, true);
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = '<span>⚡ Upload Document</span>';
-        }
+        item.status = "error";
+        item.detail = err.message || "Failed";
+        failed += 1;
       }
-    };
-    reader.readAsDataURL(borrowerSelectedFile);
-  } catch (err) {
-    showToast(err.message, true);
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = '<span>⚡ Upload Document</span>';
+      renderBorrowerQueue();
     }
+    const mode = useRegex ? "regex" : "local model";
+    showToast(failed
+      ? `Uploaded ${done} of ${total} with the ${mode}. ${failed} failed.`
+      : `Uploaded ${done} file${done === 1 ? "" : "s"} with the ${mode}.`);
+  } finally {
+    borrowerDraining = false;
+    renderBorrowerQueue();
   }
 });
 

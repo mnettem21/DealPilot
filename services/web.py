@@ -10,9 +10,11 @@ Connects the DealPilot Web UI to PocketBase collections:
 - Historical Portfolio: history
 - Risk & Fraud Flags: fraud_detected
 """
+import base64
 import json
 import mimetypes
 import os
+import re
 import sys
 import traceback
 import urllib.parse
@@ -25,7 +27,7 @@ sys.path.insert(0, str(ROOT))
 from services.common.env import load_env
 from services.common.pocketbase import PocketBase, PocketBaseError, escape_filter
 from services.common.clock import clock, now
-from services.stages import ORDER
+from services.stages import ORDER, load as load_stage
 from services.fraud_agent import FraudDetectionAgent
 
 WEB_DIR = ROOT / "web"
@@ -1133,7 +1135,10 @@ class DealPilotRequestHandler(BaseHTTPRequestHandler):
             borrowers = load_borrowers()
             match = next((b for b in borrowers if b["email"].lower() == email), None)
             if not match or match.get("password") != password:
-                return self._send_error("Invalid borrower email or password. Please try again.", 401)
+                return self._send_error(
+                    "That password does not match this application. Use the password from signup, not the bank workstation password.",
+                    401,
+                )
 
             safe_bor = {k: v for k, v in match.items() if k != "password"}
             return self._send_json({"success": True, "borrower": safe_bor})
@@ -1158,7 +1163,8 @@ class DealPilotRequestHandler(BaseHTTPRequestHandler):
             dest_file.write_bytes(raw_bytes)
 
             from services.parser.extract import process_document
-            parsed = process_document(dest_file)
+            use_regex = bool(body.get("use_regex"))
+            parsed = process_document(dest_file, use_llm=not use_regex)
             detected_doc_type = parsed.get("document_type") or selected_doc_type or "other"
             if selected_doc_type and selected_doc_type != "auto":
                 detected_doc_type = selected_doc_type
@@ -1185,7 +1191,6 @@ class DealPilotRequestHandler(BaseHTTPRequestHandler):
                 file_rec = service.create_record("files", file_payload)
 
             # Stage absorb
-            from services.stages import load as load_stage
             for stg_name in ["intake", "credit", "product", "committee", "committed", "closed"]:
                 try:
                     stg_recs = service.pb.list_records(stg_name, filter_expr=f"folder='{escape_filter(clean_folder)}'")
@@ -1204,7 +1209,8 @@ class DealPilotRequestHandler(BaseHTTPRequestHandler):
                 "record": file_rec,
                 "document_type": detected_doc_type,
                 "facts": parsed.get("facts", {}),
-                "checksum": parsed.get("checksum", "")
+                "checksum": parsed.get("checksum", ""),
+                "extractor": "regex" if use_regex else "llm",
             })
 
         if path == "/api/ai/config":
@@ -1284,45 +1290,78 @@ class DealPilotRequestHandler(BaseHTTPRequestHandler):
 
         # 5. API: Human Decision Answer
         if path == "/api/human-answer":
-            folder = body.get("folder")
-            decision = body.get("decision")  # approve, decline, request_info
-            actor = body.get("actor", "bank.officer")
-            why = body.get("why", f"Underwriter decision: {decision}")
+            folder = str(body.get("folder") or "").strip()
+            decision = str(body.get("decision") or "").strip()
+            stage_name = str(body.get("stage") or "").strip().lower()
             if not folder or not decision:
                 return self._send_error("Missing folder or decision", 400)
 
+            user = self._get_auth_user()
+            if user.get("role") == "borrower":
+                return self._send_error("Borrowers cannot record underwriting decisions.", 403)
+
             try:
-                # Find which stage the deal is in
-                deals = service.get_all_deals_data()
-                target_deal = next((d for d in deals if d["folder"] == folder), None)
-                if not target_deal:
-                    return self._send_error(f"Deal '{folder}' not found in active stages", 404)
+                if not stage_name:
+                    deals = service.get_all_deals_data()
+                    target_deal = next((d for d in deals if d["folder"] == folder), None)
+                    if not target_deal:
+                        return self._send_error(f"Deal '{folder}' not found in active stages", 404)
+                    stage_name = target_deal["stage_lower"]
 
-                stage_lower = target_deal["stage_lower"]
+                try:
+                    stage = load_stage(stage_name)
+                except SystemExit:
+                    return self._send_error(f"Unknown stage '{stage_name}'", 400)
 
-                # 1. Log action in actions table
+                if user.get("role") != "admin" and stage.name not in set(user.get("allowed_stages") or []):
+                    return self._send_error(
+                        f"{user.get('name')} cannot decide deals in {stage.name}.",
+                        403,
+                    )
+                if decision not in stage.answers:
+                    choices = ", ".join(sorted(stage.answers)) or "none"
+                    return self._send_error(
+                        f"{decision!r} is not a {stage.name} action. Use: {choices}",
+                        400,
+                    )
+
+                records = service.pb.list_records(stage.name, filter_expr=f"folder='{escape_filter(folder)}'")
+                if not records:
+                    return self._send_error(f"{folder!r} is not in {stage.name}", 404)
+                row = records[0]
+                if row.get("status") in {"declined", "funded"}:
+                    return self._send_error(f"{folder} is already {row['status']}", 400)
+
+                why = body.get("why") or f"{stage.decision_type} {decision}"
                 service.create_record("actions", {
                     "at": now(),
                     "folder": folder,
-                    "stage": stage_lower,
-                    "actor": actor,
+                    "stage": stage.name,
+                    "actor": user.get("person_id") or "operator",
                     "kind": "decision",
                     "decision": decision,
-                    "why": why
+                    "why": why,
                 })
 
-                # 2. Update status in stage row
-                new_status = "approved" if decision == "approve" else "declined" if decision == "decline" else "waiting_human"
-                rec_id = target_deal.get("id") or target_deal.get("stage_row_id")
-                # find actual record id from pocketbase
-                records = service.pb.list_records(stage_lower, filter_expr=f"folder='{escape_filter(folder)}'")
-                if records:
-                    patch_fields = {"status": new_status}
-                    if decision == "request_info":
-                        patch_fields["waiting_on"] = "REQUESTED_INFO:borrower_clarification"
-                    service.update_record(stage_lower, records[0]["id"], patch_fields)
+                if decision == "decline":
+                    fields = {"status": "declined", "waiting_on": ""}
+                elif decision == "request_info":
+                    fields = {"status": "open", "waiting_on": "Additional information requested"}
+                else:
+                    fields = {"status": "approved", "waiting_on": ""}
+                service.update_record(stage.name, row["id"], fields)
+                blockers = stage.blockers(row) if decision == "approve" else []
 
-                return self._send_json({"success": True, "folder": folder, "decision": decision, "status": new_status})
+                return self._send_json({
+                    "success": True,
+                    "folder": folder,
+                    "stage": stage.name,
+                    "decision": decision,
+                    "status": fields["status"],
+                    "waiting_on": fields["waiting_on"],
+                    "blockers": blockers,
+                    "will_advance": decision == "approve" and not blockers and stage.next_name is not None,
+                })
             except Exception as e:
                 traceback.print_exc()
                 return self._send_error(str(e), 500)

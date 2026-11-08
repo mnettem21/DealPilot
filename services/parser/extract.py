@@ -565,12 +565,14 @@ def label_fallback(text: str, filename: str):
     return document_type, extract_facts(document_type, text, filename)
 
 
-def process_document(path: Path):
+def process_document(path: Path, use_llm: bool = True):
     path = Path(path)
     text, pages, producer, image, mime = read_document(path)
     digest = checksum(path)
-    cached = read_cache(digest)
-    if cached:
+    cached = read_cache(digest) if use_llm else None
+    if not use_llm:
+        document_type, facts = label_fallback(text, path.name)
+    elif cached:
         document_type = cached["document_type"]
         facts = cached["facts"]
     else:
