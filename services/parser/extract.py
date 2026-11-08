@@ -1,8 +1,14 @@
+import base64
 import csv
 import hashlib
 import io
+import json
+import os
 import re
 from pathlib import Path
+
+from services.common.env import ROOT, load_env
+from services.parser import llm
 
 try:
     from pypdf import PdfReader
@@ -11,6 +17,101 @@ except ImportError:  # pragma: no cover - fallback to PyPDF2 if installed
         from PyPDF2 import PdfReader
     except ImportError:  # pragma: no cover - clear runtime error is returned by process_document
         PdfReader = None
+
+
+DOCUMENT_TYPES = frozenset(
+    {
+        "loan_application",
+        "guarantor_id",
+        "certificate_of_formation",
+        "ein_letter",
+        "bank_statement",
+        "financial_statements",
+        "tax_return",
+        "tax_extension",
+        "equipment_quote",
+        "request_letter",
+        "contract_summary",
+        "other",
+    }
+)
+
+PURPOSE_CATEGORIES = frozenset(
+    {"working_capital", "equipment", "inventory", "payroll", "expansion", "refinance"}
+)
+
+MONEY_FIELDS = frozenset(
+    {
+        "amount_requested",
+        "annual_revenue_stated",
+        "opening_balance",
+        "total_deposits",
+        "closing_balance",
+        "quote_total",
+    }
+)
+
+DATE_FIELDS = frozenset(
+    {"formation_date", "formation_date_support", "guarantor_dob", "needed_by"}
+)
+
+FACT_KEYS = {
+    "loan_application": {
+        "legal_name",
+        "ein",
+        "formation_date",
+        "business_address",
+        "amount_requested",
+        "product",
+        "purpose",
+        "purpose_category",
+        "term_months",
+        "guarantor_name",
+        "guarantor_dob",
+        "guarantor_dl_number",
+        "annual_revenue_stated",
+        "annual_revenue_stated_text",
+        "needed_by",
+    },
+    "guarantor_id": {"id_name", "id_dl_number"},
+    "certificate_of_formation": {
+        "formation_legal_name",
+        "formation_date_support",
+        "formation_address",
+        "registered_agent",
+        "registered_agent_address",
+    },
+    "ein_letter": {"ein_legal_name", "ein_support"},
+    "bank_statement": {
+        "statement_month",
+        "opening_balance",
+        "total_deposits",
+        "closing_balance",
+        "declared_pages",
+        "seen_page_markers",
+        "transfer_accounts",
+    },
+    "financial_statements": {"preparer"},
+    "tax_return": {"preparer"},
+    "tax_extension": set(),
+    "equipment_quote": {"equipment_vendor", "vendor_remit_acct_last4", "quote_total"},
+    "request_letter": set(),
+    "contract_summary": set(),
+    "other": set(),
+}
+
+SYSTEM_PROMPT = """You extract facts from one loan-file document for a bank intake and credit review.
+Reply with one JSON object and no other text.
+Use null for any value the document does not state. Do not guess or calculate a number the document does not give.
+If annual revenue is a range or an approximation, set annual_revenue_stated to null and put the phrase in annual_revenue_stated_text.
+document_type must be one of: loan_application, guarantor_id, certificate_of_formation, ein_letter, bank_statement, financial_statements, tax_return, tax_extension, equipment_quote, request_letter, contract_summary, other.
+Include these keys: document_type, legal_name, ein, formation_date, business_address, amount_requested, product, purpose, purpose_category, term_months, guarantor_name, guarantor_dob, guarantor_dl_number, annual_revenue_stated, annual_revenue_stated_text, needed_by, formation_legal_name, formation_date_support, formation_address, registered_agent, registered_agent_address, ein_legal_name, ein_support, id_name, id_dl_number, statement_month, opening_balance, total_deposits, closing_balance, preparer, equipment_vendor, vendor_remit_acct_last4, quote_total.
+purpose_category is one of working_capital, equipment, inventory, payroll, expansion, refinance, or null.
+statement_month is YYYY-MM or null.
+Dates are YYYY-MM-DD. Keep a time when the document states one, as YYYY-MM-DDTHH:MM.
+Money is a number of US dollars without a dollar sign.
+EIN values may keep their printed hyphens. Driver license numbers are the license number only.
+"""
 
 
 DOC_HINTS = [
@@ -232,22 +333,257 @@ def infer_month(filename: str):
     return next((value for name, value in month_names.items() if name in lower), None)
 
 
-def process_document(path: Path):
+def drop_empty(facts: dict) -> dict:
+    return {key: value for key, value in facts.items() if value not in (None, "", [])}
+
+
+def as_money(value):
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    return money(str(value))
+
+
+def looks_like_range(value) -> bool:
+    if not isinstance(value, str):
+        return False
+    text = value.lower()
+    if any(word in text for word in ("approx", "about", "around", "between", "~")):
+        return True
+    return bool(re.search(r"\d\s*[-–to]+\s*\d", text))
+
+
+def as_ein(value):
+    if value is None or value == "":
+        return None
+    digits = re.sub(r"\D", "", str(value))
+    if len(digits) == 9:
+        return f"{digits[:2]}-{digits[2:]}"
+    return clean(str(value))
+
+
+def as_digits(value):
+    if value is None or value == "":
+        return None
+    digits = re.sub(r"\D", "", str(value))
+    return digits or None
+
+
+def as_date(value):
+    if value is None or value == "":
+        return None
+    text = str(value).strip()
+    match = re.match(r"(\d{4}-\d{2}-\d{2})([T ]\d{2}:\d{2}(?::\d{2})?)?$", text)
+    if match:
+        return match.group(1) + (match.group(2) or "").replace(" ", "T")
+    return clean(text)
+
+
+def as_month(value):
+    if value is None or value == "":
+        return None
+    match = re.search(r"(20\d{2})[-/](\d{1,2})", str(value))
+    if not match:
+        return None
+    month = int(match.group(2))
+    if month < 1 or month > 12:
+        return None
+    return f"{match.group(1)}-{month:02d}"
+
+
+def as_int(value):
+    if value is None or value == "" or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    match = re.search(r"\d+", str(value))
+    return int(match.group(0)) if match else None
+
+
+def last4(value):
+    digits = as_digits(value)
+    if digits and len(digits) >= 4:
+        return digits[-4:]
+    return None
+
+
+def purpose_category(product, purpose, suggested):
+    product_text = (product or "").lower()
+    purpose_text = (purpose or "").lower()
+    if isinstance(suggested, str):
+        suggested = suggested.strip().lower()
+    else:
+        suggested = None
+    if "equipment" in product_text or "equipment" in purpose_text:
+        return "equipment"
+    if "payroll" in purpose_text:
+        return "payroll"
+    if "inventory" in purpose_text:
+        return "inventory"
+    if "refinanc" in purpose_text:
+        return "refinance"
+    if "expand" in purpose_text or "build out" in purpose_text:
+        return "expansion"
+    if suggested in PURPOSE_CATEGORIES:
+        return suggested
+    if purpose_text or product_text:
+        return "working_capital"
+    return None
+
+
+def statement_markers(text: str) -> dict:
+    facts = {}
+    found = re.findall(r"Page\s+(\d+)\s+of\s+(\d+)", text or "", re.I)
+    page_markers = [(int(page), int(total)) for page, total in found]
+    if page_markers:
+        facts["declared_pages"] = max(total for _, total in page_markers)
+        facts["seen_page_markers"] = sorted({page for page, _ in page_markers})
+    transfers = sorted(set(re.findall(r"TRANSFER TO X+([0-9]{4})", text or "", re.I)))
+    if transfers:
+        facts["transfer_accounts"] = transfers
+    return facts
+
+
+def normalize_model(raw: dict, text: str, filename: str):
+    if not isinstance(raw, dict):
+        raise ValueError("model JSON was not an object")
+    document_type = str(raw.get("document_type") or "").strip().lower()
+    if document_type not in DOCUMENT_TYPES:
+        raise ValueError(f"document type {document_type!r} is outside the enum")
+
+    revenue_text = raw.get("annual_revenue_stated_text")
+    revenue_value = raw.get("annual_revenue_stated")
+    ranged = looks_like_range(revenue_value) or looks_like_range(revenue_text)
+    values = {}
+    for key in FACT_KEYS[document_type]:
+        if key in {"purpose_category", "declared_pages", "seen_page_markers", "transfer_accounts"}:
+            continue
+        value = raw.get(key)
+        if key in MONEY_FIELDS:
+            value = None if key == "annual_revenue_stated" and ranged else as_money(value)
+        elif key in DATE_FIELDS:
+            value = as_date(value)
+        elif key in {"ein", "ein_support"}:
+            value = as_ein(value)
+        elif key in {"guarantor_dl_number", "id_dl_number"}:
+            value = as_digits(value)
+        elif key == "term_months":
+            value = as_int(value)
+        elif key == "statement_month":
+            value = as_month(value)
+        elif key == "vendor_remit_acct_last4":
+            value = last4(value)
+        elif key == "annual_revenue_stated_text":
+            source = revenue_text if revenue_text not in (None, "") else revenue_value
+            value = clean(str(source)) if ranged and source not in (None, "") else None
+        elif isinstance(value, str):
+            value = clean(value)
+        values[key] = value
+
+    if document_type == "loan_application":
+        values["purpose_category"] = purpose_category(
+            values.get("product"), values.get("purpose"), raw.get("purpose_category")
+        )
+    if document_type == "bank_statement":
+        values["statement_month"] = values.get("statement_month") or infer_month(filename)
+        values.update(statement_markers(text))
+    return document_type, drop_empty(values)
+
+
+def cache_dir() -> Path:
+    load_env()
+    override = os.environ.get("EXTRACT_CACHE_DIR")
+    if override:
+        return Path(override)
+    return ROOT / "output" / "extract_cache"
+
+
+def read_cache(digest: str):
+    path = cache_dir() / f"{digest}.json"
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    if data.get("document_type") not in DOCUMENT_TYPES or not isinstance(data.get("facts"), dict):
+        return None
+    return data
+
+
+def write_cache(digest: str, document_type: str, facts: dict) -> None:
+    try:
+        directory = cache_dir()
+        directory.mkdir(parents=True, exist_ok=True)
+        payload = {"document_type": document_type, "facts": facts}
+        (directory / f"{digest}.json").write_text(json.dumps(payload, indent=2))
+    except OSError as exc:
+        print(f"extractor: cache write failed: {exc}")
+
+
+def image_mime(suffix: str) -> str:
+    if suffix == ".png":
+        return "image/png"
+    return "image/jpeg"
+
+
+def build_messages(filename: str, producer: str, pages: int, text: str, image: bytes | None, mime: str | None):
+    header = f"Filename: {filename}\nProducer: {producer}\nPage count: {pages}\n"
+    if image is not None:
+        encoded = base64.b64encode(image).decode()
+        user = {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": header + "Read the attached image. There is no text layer."},
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{encoded}"}},
+            ],
+        }
+    else:
+        body = text if len(text) <= 100_000 else text[:100_000] + "\n[text truncated]"
+        user = {"role": "user", "content": header + "\nDocument text:\n" + body}
+    return [{"role": "system", "content": SYSTEM_PROMPT}, user]
+
+
+def read_document(path: Path):
     suffix = path.suffix.lower()
     if suffix == ".pdf":
         text, pages, producer = extract_pdf(path)
-    elif suffix == ".csv":
+        return text, pages, producer, None, None
+    if suffix == ".csv":
         text, _rows, _columns = extract_csv(path)
-        pages, producer = 1, "CSV export"
-    elif suffix in {".jpg", ".jpeg", ".png"}:
-        text, pages, producer = "", 1, "image upload"
-    else:
-        raise ValueError(f"Unsupported file type: {suffix}")
+        return text, 1, "CSV export", None, None
+    if suffix in {".jpg", ".jpeg", ".png"}:
+        return "", 1, "image upload", path.read_bytes(), image_mime(suffix)
+    raise ValueError(f"Unsupported file type: {suffix}")
 
-    document_type = classify(text, path.name)
-    facts = extract_facts(document_type, text, path.name)
+
+def label_fallback(text: str, filename: str):
+    document_type = classify(text, filename)
+    return document_type, extract_facts(document_type, text, filename)
+
+
+def process_document(path: Path):
+    path = Path(path)
+    text, pages, producer, image, mime = read_document(path)
+    digest = checksum(path)
+    cached = read_cache(digest)
+    if cached:
+        document_type = cached["document_type"]
+        facts = cached["facts"]
+    else:
+        try:
+            raw = llm.complete_json(build_messages(path.name, producer, pages, text, image, mime))
+            document_type, facts = normalize_model(raw, text, path.name)
+        except Exception as exc:
+            print(f"extractor: model failed for {path.name}: {exc}; using label matcher")
+            document_type, facts = label_fallback(text, path.name)
+        else:
+            write_cache(digest, document_type, facts)
     return {
-        "checksum": checksum(path),
+        "checksum": digest,
         "document_type": document_type,
         "status": "PROCESSED",
         "page_count": pages,

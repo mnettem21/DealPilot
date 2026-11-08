@@ -2,5 +2,6 @@ __pycache__/
 *.pyc
 data/
 output/submission.json
+output/extract_cache/
 .DS_Store
 
