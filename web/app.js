@@ -239,7 +239,9 @@ function applyUserSession(user) {
     bannerBadge.className = `badge ${user.role === "admin" ? "green" : user.role === "fraud_ops" ? "red" : user.role === "closing" ? "amber" : "blue"}`;
   }
 
-  // Hide Auth Screen, Show Bank Shell
+  // Hide Auth & Borrower Screens, Show Bank Shell
+  $("#borrower-auth-screen")?.classList.add("hidden");
+  $("#borrower-dashboard")?.classList.add("hidden");
   $("#auth-screen")?.classList.add("hidden");
   $("#bank-shell")?.classList.remove("hidden");
 
@@ -253,6 +255,30 @@ function applyUserSession(user) {
   loadTablesList();
   renderAlertsPage();
   renderFraudPage();
+}
+
+function showBorrowerAuth() {
+  $("#auth-screen")?.classList.add("hidden");
+  $("#bank-shell")?.classList.add("hidden");
+  $("#borrower-dashboard")?.classList.add("hidden");
+  $("#borrower-auth-screen")?.classList.remove("hidden");
+}
+
+function showStaffAuth() {
+  $("#borrower-auth-screen")?.classList.add("hidden");
+  $("#borrower-dashboard")?.classList.add("hidden");
+  $("#bank-shell")?.classList.add("hidden");
+  $("#auth-screen")?.classList.remove("hidden");
+}
+
+function showBorrowerDashboard(borrower) {
+  state.currentBorrower = borrower;
+  $("#borrower-auth-screen")?.classList.add("hidden");
+  $("#auth-screen")?.classList.add("hidden");
+  $("#bank-shell")?.classList.add("hidden");
+  $("#borrower-dashboard")?.classList.remove("hidden");
+
+  loadBorrowerStatus(borrower.folder || borrower.business_name);
 }
 
 async function loginUser(identifier, password) {
@@ -290,8 +316,105 @@ async function logoutUser() {
   localStorage.removeItem("dealpilot_user");
   state.currentUser = null;
   $("#bank-shell")?.classList.add("hidden");
-  $("#auth-screen")?.classList.remove("hidden");
-  showToast("Signed out. Please select an employee account to sign in.");
+  showBorrowerAuth();
+  showToast("Officer signed out of workstation.");
+}
+
+async function logoutBorrower() {
+  localStorage.removeItem("dealpilot_borrower");
+  state.currentBorrower = null;
+  $("#borrower-dashboard")?.classList.add("hidden");
+  showBorrowerAuth();
+  showToast("Borrower signed out.");
+}
+
+async function loadBorrowerStatus(folder) {
+  if (!folder) return;
+  try {
+    const data = await api(`/api/borrower/status?folder=${encodeURIComponent(folder)}`);
+    const bizEl = $("#borrower-dash-biz");
+    if (bizEl) bizEl.textContent = data.folder || folder;
+
+    const nameEl = $("#borrower-dash-name");
+    if (nameEl) nameEl.textContent = data.extracted?.guarantor_name || state.currentBorrower?.guarantor_name || "Borrower";
+
+    const titleEl = $("#borrower-dash-stage-title");
+    if (titleEl) titleEl.textContent = data.stage_label || "Application Review";
+
+    const descEl = $("#borrower-dash-status-desc");
+    if (descEl) {
+      descEl.textContent = data.waiting_on ? `Status: Waiting on ${data.waiting_on}` : "Your application is active and under review by Trinity Commercial Bank underwriters.";
+    }
+
+    const amtEl = $("#borrower-dash-amount");
+    if (amtEl) {
+      const amt = data.extracted?.amount_requested || state.currentBorrower?.amount_requested || 150000;
+      amtEl.textContent = `$${Number(amt).toLocaleString()}`;
+    }
+
+    const purpEl = $("#borrower-dash-purpose");
+    if (purpEl) {
+      const purp = data.extracted?.purpose || state.currentBorrower?.purpose || "Working Capital";
+      purpEl.textContent = purp.replace(/_/g, " ");
+    }
+
+    // 5-Stage Step Progress
+    const step = data.stage_step || 1;
+    for (let i = 1; i <= 5; i++) {
+      const stepEl = $(`#bstep-${i}`);
+      if (!stepEl) continue;
+      stepEl.classList.remove("active", "completed");
+      if (i < step) {
+        stepEl.classList.add("completed");
+      } else if (i === step) {
+        stepEl.classList.add("active");
+      }
+    }
+
+    // Checklist Rendering
+    const checklistItems = $("#borrower-checklist-items");
+    const checklist = data.checklist || [];
+    let receivedCount = 0;
+    if (checklistItems) {
+      checklistItems.innerHTML = "";
+      checklist.forEach(item => {
+        const isRec = item.status === "received";
+        if (isRec) receivedCount++;
+        const row = document.createElement("div");
+        row.className = `checklist-item ${isRec ? "received" : ""}`;
+        row.innerHTML = `
+          <div>
+            <strong style="font-size:13px;color:#0f172a;display:block;">${escapeHtml(item.label)}</strong>
+            <small style="font-size:11px;color:#64748b;">${escapeHtml(item.description || "")}</small>
+          </div>
+          <span class="badge ${isRec ? "green" : "amber"}">${isRec ? "✅ Received" : "⏳ Pending"}</span>
+        `;
+        checklistItems.appendChild(row);
+      });
+    }
+
+    const badgeEl = $("#borrower-docs-badge");
+    if (badgeEl) badgeEl.textContent = `${receivedCount} of ${checklist.length} Submitted`;
+
+    // Submitted Files Table
+    const filesTbody = $("#borrower-files-tbody");
+    const files = data.files || [];
+    if (filesTbody) {
+      if (files.length === 0) {
+        filesTbody.innerHTML = '<tr><td colspan="3" style="padding:12px;text-align:center;color:#94a3b8;">No uploaded documents yet. Submit your first document on the right.</td></tr>';
+      } else {
+        filesTbody.innerHTML = files.map(f => `
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:8px 12px;font-weight:600;color:#1e293b;">${escapeHtml(f.filename || "")}</td>
+            <td style="padding:8px 12px;"><span class="badge blue">${escapeHtml(f.doc_type || "document")}</span></td>
+            <td style="padding:8px 12px;color:#64748b;">${escapeHtml(shortDate(f.arrived_at) || "Recently")}</td>
+          </tr>
+        `).join("");
+      }
+    }
+  } catch (err) {
+    showToast(`Could not load application status: ${err.message}`, true);
+  }
 }
 
 // -------------------------------------------------------------
@@ -1316,8 +1439,246 @@ $("#table-search")?.addEventListener("input", () => renderDynamicTable(state.cur
 $("#alerts-search")?.addEventListener("input", () => renderAlertsPage());
 $("#fraud-search")?.addEventListener("input", () => renderFraudPage());
 
+// -------------------------------------------------------------
+// Borrower Customer Portal Event Handlers
+// -------------------------------------------------------------
+
+// Switch between Customer Portal and Staff Workstation Portal
+$("#btn-goto-staff-portal")?.addEventListener("click", () => showStaffAuth());
+$("#btn-goto-borrower-portal")?.addEventListener("click", () => showBorrowerAuth());
+$("#btn-borrower-logout")?.addEventListener("click", () => logoutBorrower());
+
+// Borrower Tabs Toggle (Login vs Register)
+$("#tab-borrower-login-btn")?.addEventListener("click", () => {
+  $("#tab-borrower-login-btn")?.classList.add("active");
+  $("#tab-borrower-register-btn")?.classList.remove("active");
+  $("#borrower-login-pane")?.classList.remove("hidden");
+  $("#borrower-register-pane")?.classList.add("hidden");
+});
+
+$("#tab-borrower-register-btn")?.addEventListener("click", () => {
+  $("#tab-borrower-register-btn")?.classList.add("active");
+  $("#tab-borrower-login-btn")?.classList.remove("active");
+  $("#borrower-register-pane")?.classList.remove("hidden");
+  $("#borrower-login-pane")?.classList.add("hidden");
+});
+
+// Demo Borrower Quick Fill Chips
+$$(".demo-borrower-chip")?.forEach(chip => {
+  chip.addEventListener("click", () => {
+    const email = chip.dataset.borrowerEmail;
+    const pass = chip.dataset.borrowerPass;
+    const emailInput = $("#borrower-login-email");
+    const passInput = $("#borrower-login-pass");
+    if (emailInput) emailInput.value = email;
+    if (passInput) passInput.value = pass;
+    passInput?.focus();
+  });
+});
+
+// Eye toggles for borrower password fields
+$("#btn-toggle-borrower-login-pass")?.addEventListener("click", () => {
+  const p = $("#borrower-login-pass");
+  if (p) p.type = p.type === "password" ? "text" : "password";
+});
+
+$("#btn-toggle-borrower-reg-pass")?.addEventListener("click", () => {
+  const p = $("#borrower-reg-pass");
+  if (p) p.type = p.type === "password" ? "text" : "password";
+});
+
+// Borrower Login Submit
+$("#form-borrower-login")?.addEventListener("submit", async event => {
+  event.preventDefault();
+  const email = $("#borrower-login-email")?.value.trim();
+  const password = $("#borrower-login-pass")?.value.trim();
+
+  if (!email || !password) {
+    showToast("Please enter borrower email and password.", true);
+    return;
+  }
+
+  showToast("Signing in to borrower portal...");
+  try {
+    const res = await api("/api/borrower/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password })
+    });
+    if (!res.borrower) throw new Error("Borrower authentication failed");
+    localStorage.setItem("dealpilot_borrower", JSON.stringify(res.borrower));
+    showToast(`Welcome back, ${res.borrower.guarantor_name} (${res.borrower.business_name})!`);
+    showBorrowerDashboard(res.borrower);
+  } catch (err) {
+    showToast(err.message, true);
+  }
+});
+
+// Borrower Register Submit
+$("#form-borrower-register")?.addEventListener("submit", async event => {
+  event.preventDefault();
+  const business_name = $("#borrower-reg-biz")?.value.trim();
+  const guarantor_name = $("#borrower-reg-name")?.value.trim();
+  const email = $("#borrower-reg-email")?.value.trim();
+  const password = $("#borrower-reg-pass")?.value.trim();
+  const amount_requested = $("#borrower-reg-amount")?.value;
+  const purpose = $("#borrower-reg-purpose")?.value;
+
+  if (!business_name || !guarantor_name || !email || !password) {
+    showToast("Please fill in all required application fields.", true);
+    return;
+  }
+
+  showToast("Submitting loan application...");
+  try {
+    const res = await api("/api/borrower/register", {
+      method: "POST",
+      body: JSON.stringify({
+        business_name,
+        guarantor_name,
+        email,
+        password,
+        amount_requested,
+        purpose
+      })
+    });
+    if (!res.borrower) throw new Error("Application registration failed");
+    localStorage.setItem("dealpilot_borrower", JSON.stringify(res.borrower));
+    showToast(`Application created for ${res.borrower.business_name}!`);
+    showBorrowerDashboard(res.borrower);
+  } catch (err) {
+    showToast(err.message, true);
+  }
+});
+
+// Borrower Document Upload Dropzone & Form
+const bDropzone = $("#borrower-dropzone");
+const bFileInput = $("#borrower-file-input");
+
+bDropzone?.addEventListener("click", e => {
+  if (e.target.closest("#btn-borrower-remove-file")) return;
+  bFileInput?.click();
+});
+
+bFileInput?.addEventListener("change", e => {
+  if (e.target.files && e.target.files[0]) {
+    borrowerSelectedFile = e.target.files[0];
+    const nameEl = $("#borrower-selected-name");
+    if (nameEl) nameEl.textContent = borrowerSelectedFile.name;
+    $("#borrower-dropzone-empty")?.classList.add("hidden");
+    $("#borrower-dropzone-selected")?.classList.remove("hidden");
+  }
+});
+
+$("#btn-borrower-remove-file")?.addEventListener("click", e => {
+  e.stopPropagation();
+  borrowerSelectedFile = null;
+  if (bFileInput) bFileInput.value = "";
+  $("#borrower-dropzone-empty")?.classList.remove("hidden");
+  $("#borrower-dropzone-selected")?.classList.add("hidden");
+});
+
+bDropzone?.addEventListener("dragover", e => {
+  e.preventDefault();
+  bDropzone.style.borderColor = "#10b981";
+  bDropzone.style.background = "#ecfdf5";
+});
+
+bDropzone?.addEventListener("dragleave", () => {
+  bDropzone.style.borderColor = "#cbd5e1";
+  bDropzone.style.background = "#f8fafc";
+});
+
+bDropzone?.addEventListener("drop", e => {
+  e.preventDefault();
+  bDropzone.style.borderColor = "#cbd5e1";
+  bDropzone.style.background = "#f8fafc";
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+    borrowerSelectedFile = e.dataTransfer.files[0];
+    const nameEl = $("#borrower-selected-name");
+    if (nameEl) nameEl.textContent = borrowerSelectedFile.name;
+    $("#borrower-dropzone-empty")?.classList.add("hidden");
+    $("#borrower-dropzone-selected")?.classList.remove("hidden");
+  }
+});
+
+$("#form-borrower-doc-upload")?.addEventListener("submit", async event => {
+  event.preventDefault();
+  if (!borrowerSelectedFile) {
+    showToast("Please choose a file to upload.", true);
+    return;
+  }
+  const folder = state.currentBorrower?.folder || state.currentBorrower?.business_name;
+  if (!folder) {
+    showToast("Borrower deal folder is missing.", true);
+    return;
+  }
+
+  const docType = $("#borrower-upload-doctype")?.value || "other";
+  const btn = $("#btn-borrower-submit-upload");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳ Uploading & Ingesting...</span>';
+  }
+
+  showToast(`Uploading ${borrowerSelectedFile.name}...`);
+  try {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64Data = reader.result.split(",")[1];
+        const res = await api("/api/borrower/upload", {
+          method: "POST",
+          body: JSON.stringify({
+            folder,
+            filename: borrowerSelectedFile.name,
+            content_base64: base64Data,
+            doc_type: docType
+          })
+        });
+
+        showToast(`Document uploaded successfully! Type: ${res.document_type}`);
+        // Reset file input
+        borrowerSelectedFile = null;
+        if (bFileInput) bFileInput.value = "";
+        $("#borrower-dropzone-empty")?.classList.remove("hidden");
+        $("#borrower-dropzone-selected")?.classList.add("hidden");
+
+        // Reload borrower status
+        await loadBorrowerStatus(folder);
+      } catch (err) {
+        showToast(err.message, true);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<span>⚡ Upload Document</span>';
+        }
+      }
+    };
+    reader.readAsDataURL(borrowerSelectedFile);
+  } catch (err) {
+    showToast(err.message, true);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span>⚡ Upload Document</span>';
+    }
+  }
+});
+
 // Initial Boot: Check authenticated session
 (function init() {
+  // Check if a borrower session is active
+  const savedBorrower = localStorage.getItem("dealpilot_borrower");
+  if (savedBorrower) {
+    try {
+      const borrower = JSON.parse(savedBorrower);
+      showBorrowerDashboard(borrower);
+      return;
+    } catch (e) {
+      localStorage.removeItem("dealpilot_borrower");
+    }
+  }
+
+  // Check if an officer session is active
   const savedUser = localStorage.getItem("dealpilot_user");
   if (savedUser) {
     try {
@@ -1329,7 +1690,6 @@ $("#fraud-search")?.addEventListener("input", () => renderFraudPage());
     }
   }
 
-  // Not logged in: Show auth screen
-  $("#auth-screen")?.classList.remove("hidden");
-  $("#bank-shell")?.classList.add("hidden");
+  // Not logged in: Default to Borrower Customer Portal (keeps internal employee page restricted)
+  showBorrowerAuth();
 })();
